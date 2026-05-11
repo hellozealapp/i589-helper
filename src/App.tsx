@@ -250,27 +250,6 @@ function s(key: string, lang: string): string {
   return STRINGS[key]?.[lang] ?? STRINGS[key]?.["en"] ?? key;
 }
 
-async function googleTranslate(text: string, targetLang: string): Promise<string> {
-  if (!text?.trim() || targetLang === "en") return text;
-  const cacheKey = `${targetLang}::${text}`;
-  if (cache[cacheKey]) return cache[cacheKey];
-  const apiKey = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY;
-  if (!apiKey) return text;
-  try {
-    const res = await fetch(
-      `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q: text, target: targetLang, format: "text" }),
-      }
-    );
-    const data = await res.json();
-    const result: string = data?.data?.translations?.[0]?.translatedText ?? text;
-    cache[cacheKey] = result;
-    return result;
-  } catch { return text; }
-}
 
 async function translateToEnglish(text: string, sourceLang: string): Promise<string> {
   if (!text?.trim() || sourceLang === "en") return text;
