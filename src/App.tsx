@@ -1,374 +1,430 @@
 import { useState, useEffect } from "react";
 
 interface Language { code: string; label: string; nativeLabel: string; rtl: boolean; flag: string; }
-interface Field { id: string; labelKey: string; type: "text" | "date" | "select" | "textarea"; required?: boolean; optionKeys?: string[]; hintKey?: string; tall?: boolean; }
-interface Section { id: string; titleKey: string; shortKey: string; fields: Field[]; }
+interface Field { id: string; en: string; es: string; ar: string; fr: string; type: "text"|"date"|"select"|"textarea"|"yesno"; opts?: string[][]; tall?: boolean; req?: boolean; }
+interface Section { id: string; en: string; es: string; ar: string; fr: string; short_en: string; short_es: string; short_ar: string; short_fr: string; fields: Field[]; }
 
-const LANGUAGES: Language[] = [
-  { code: "en", label: "English", nativeLabel: "English", rtl: false, flag: "🇺🇸" },
-  { code: "es", label: "Spanish", nativeLabel: "Español", rtl: false, flag: "🇪🇸" },
-  { code: "ar", label: "Arabic", nativeLabel: "العربية", rtl: true, flag: "🇸🇦" },
-  { code: "fr", label: "French", nativeLabel: "Français", rtl: false, flag: "🇫🇷" },
+const LANGS: Language[] = [
+  { code:"en", label:"English",  nativeLabel:"English",  rtl:false, flag:"🇺🇸" },
+  { code:"es", label:"Spanish",  nativeLabel:"Español",  rtl:false, flag:"🇪🇸" },
+  { code:"ar", label:"Arabic",   nativeLabel:"العربية",  rtl:true,  flag:"🇸🇦" },
+  { code:"fr", label:"French",   nativeLabel:"Français", rtl:false, flag:"🇫🇷" },
 ];
 
 const C = {
-  teal: "#0F6E56", tealLight: "#E1F5EE", tealBorder: "#5DCAA5",
-  amber: "#BA7517", amberLight: "#FAEEDA", amberBorder: "#EF9F27",
-  gray: "#F7F7F5", border: "#D3D1C7",
-  white: "#FFFFFF", text: "#1a1a1a", textMid: "#555", textLight: "#999",
-  danger: "#E24B4A",
+  teal:"#0F6E56", tealL:"#E1F5EE", tealB:"#5DCAA5",
+  amber:"#BA7517", amberL:"#FAEEDA", amberB:"#EF9F27",
+  gray:"#F7F7F5", border:"#D3D1C7", white:"#FFFFFF",
+  text:"#1a1a1a", mid:"#555", light:"#999", red:"#E24B4A",
 };
 
-type StringMap = Record<string, Record<string, string>>;
-
-const STRINGS: StringMap = {
-  app_title:        { en: "Asylum Application Helper", es: "Asistente de Solicitud de Asilo", ar: "مساعد طلب اللجوء", fr: "Assistant de Demande d'Asile" },
-  app_subtitle:     { en: "USCIS Form I-589", es: "Formulario USCIS I-589", ar: "نموذج USCIS I-589", fr: "Formulaire USCIS I-589" },
-  app_desc:         { en: "Fill out each section. At the end you'll see both versions — one in your language, one in English — to review and export.", es: "Complete cada sección. Al final verá ambas versiones — una en su idioma y otra en inglés — para revisar y exportar.", ar: "أكمل كل قسم. في النهاية ستعرض نسختين — واحدة بلغتك وأخرى بالإنجليزية — للمراجعة والتصدير.", fr: "Remplissez chaque section. À la fin vous verrez les deux versions — une dans votre langue, une en anglais — pour réviser et exporter." },
-  choose_language:  { en: "Choose your language", es: "Elige tu idioma", ar: "اختر لغتك", fr: "Choisissez votre langue" },
-  answered_in:      { en: "I answered in:", es: "Respondí en:", ar: "أجبت بـ:", fr: "J'ai répondu en:" },
-  in_english:       { en: "English", es: "Inglés", ar: "الإنجليزية", fr: "Anglais" },
-  type_here:        { en: "Type here…", es: "Escriba aquí…", ar: "اكتب هنا…", fr: "Écrivez ici…" },
-  select_option:    { en: "— Select —", es: "— Seleccione —", ar: "— اختر —", fr: "— Sélectionner —" },
-  previous:         { en: "← Previous", es: "← Anterior", ar: "→ السابق", fr: "← Précédent" },
-  next:             { en: "Next →", es: "Siguiente →", ar: "← التالي", fr: "Suivant →" },
-  review_export:    { en: "Review & Export →", es: "Revisar y Exportar →", ar: "مراجعة وتصدير ←", fr: "Réviser et Exporter →" },
-  translating:      { en: "Translating…", es: "Traduciendo…", ar: "جارٍ الترجمة…", fr: "Traduction en cours…" },
-  translation_here: { en: "Translation will appear here", es: "La traducción aparecerá aquí", ar: "ستظهر الترجمة هنا", fr: "La traduction apparaîtra ici" },
-  needs_en_trans:   { en: "⚠ needs English translation", es: "⚠ necesita traducción al inglés", ar: "⚠ يحتاج ترجمة إنجليزية", fr: "⚠ nécessite traduction anglaise" },
-  for_submission:   { en: "English — for submission", es: "Inglés — para presentar", ar: "الإنجليزية — للتقديم", fr: "Anglais — pour soumission" },
-  for_review:       { en: "Your language — for review", es: "Tu idioma — para revisar", ar: "لغتك — للمراجعة", fr: "Votre langue — pour révision" },
-  fields_filled:    { en: "fields filled", es: "campos completados", ar: "حقول مكتملة", fr: "champs remplis" },
-  review_title:     { en: "Review your application", es: "Revise su solicitud", ar: "راجع طلبك", fr: "Révisez votre demande" },
-  review_desc:      { en: "Check both versions below. When ready, export both files.", es: "Revise ambas versiones. Cuando esté listo, exporte ambos archivos.", ar: "راجع كلتا النسختين. عند الاستعداد، صدّر كلا الملفين.", fr: "Vérifiez les deux versions. Quand vous êtes prêt, exportez les deux fichiers." },
-  needs_trans_warn: { en: "fields answered in your language need English translation before submission", es: "campos respondidos en su idioma necesitan traducción al inglés antes de presentar", ar: "حقول بلغتك تحتاج ترجمة إنجليزية قبل التقديم", fr: "champs répondus dans votre langue nécessitent traduction anglaise avant soumission" },
-  back_to_form:     { en: "← Back to form", es: "← Volver al formulario", ar: "→ العودة للنموذج", fr: "← Retour au formulaire" },
-  dl_english:       { en: "↓ Download English version", es: "↓ Descargar versión en inglés", ar: "↓ تحميل النسخة الإنجليزية", fr: "↓ Télécharger la version anglaise" },
-  dl_native:        { en: "↓ Download your language version", es: "↓ Descargar versión en español", ar: "↓ تحميل النسخة العربية", fr: "↓ Télécharger la version française" },
-  sec_about_title:  { en: "Part A.I — About You", es: "Parte A.I — Sobre Usted", ar: "الجزء أ.١ — معلوماتك", fr: "Partie A.I — À Votre Sujet" },
-  sec_about_short:  { en: "About You", es: "Sobre Usted", ar: "عنك", fr: "À Votre Sujet" },
-  sec_family_title: { en: "Part A.II — Your Family", es: "Parte A.II — Su Familia", ar: "الجزء أ.٢ — عائلتك", fr: "Partie A.II — Votre Famille" },
-  sec_family_short: { en: "Family", es: "Familia", ar: "العائلة", fr: "Famille" },
-  sec_bg_title:     { en: "Part A.III — Your Background", es: "Parte A.III — Sus Antecedentes", ar: "الجزء أ.٣ — خلفيتك", fr: "Partie A.III — Votre Parcours" },
-  sec_bg_short:     { en: "Background", es: "Antecedentes", ar: "الخلفية", fr: "Parcours" },
-  sec_claim_title:  { en: "Part B — Your Asylum Claim", es: "Parte B — Su Solicitud de Asilo", ar: "الجزء ب — طلب لجوئك", fr: "Partie B — Votre Demande d'Asile" },
-  sec_claim_short:  { en: "Claim", es: "Solicitud", ar: "الطلب", fr: "Demande" },
-  sec_add_title:    { en: "Part C — Additional Information", es: "Parte C — Información Adicional", ar: "الجزء ج — معلومات إضافية", fr: "Partie C — Informations Supplémentaires" },
-  sec_add_short:    { en: "Additional", es: "Adicional", ar: "إضافي", fr: "Supplémentaire" },
-  f_last_name:      { en: "Last name", es: "Apellido", ar: "اسم العائلة", fr: "Nom de famille" },
-  f_first_name:     { en: "First name", es: "Nombre", ar: "الاسم الأول", fr: "Prénom" },
-  f_middle_name:    { en: "Middle name", es: "Segundo nombre", ar: "الاسم الأوسط", fr: "Deuxième prénom" },
-  f_aliases:        { en: "Other names used (aliases)", es: "Otros nombres usados (alias)", ar: "أسماء أخرى (أسماء مستعارة)", fr: "Autres noms utilisés (alias)" },
-  f_dob:            { en: "Date of birth", es: "Fecha de nacimiento", ar: "تاريخ الميلاد", fr: "Date de naissance" },
-  f_city_birth:     { en: "City/town of birth", es: "Ciudad/pueblo de nacimiento", ar: "مدينة/بلدة الميلاد", fr: "Ville de naissance" },
-  f_country_birth:  { en: "Country of birth", es: "País de nacimiento", ar: "بلد الميلاد", fr: "Pays de naissance" },
-  f_nationality:    { en: "Current nationality/citizenship", es: "Nacionalidad/ciudadanía actual", ar: "الجنسية الحالية", fr: "Nationalité actuelle" },
-  f_race:           { en: "Race, ethnic, or tribal group", es: "Raza, grupo étnico o tribal", ar: "العرق أو المجموعة العرقية", fr: "Race, groupe ethnique ou tribal" },
-  f_religion:       { en: "Religion", es: "Religión", ar: "الدين", fr: "Religion" },
-  f_sex:            { en: "Sex", es: "Sexo", ar: "الجنس", fr: "Sexe" },
-  f_marital:        { en: "Marital status", es: "Estado civil", ar: "الحالة الاجتماعية", fr: "État civil" },
-  f_spouse_last:    { en: "Spouse — last name", es: "Cónyuge — apellido", ar: "الزوج/ة — اسم العائلة", fr: "Conjoint·e — nom" },
-  f_spouse_first:   { en: "Spouse — first name", es: "Cónyuge — nombre", ar: "الزوج/ة — الاسم الأول", fr: "Conjoint·e — prénom" },
-  f_spouse_dob:     { en: "Spouse — date of birth", es: "Cónyuge — fecha de nacimiento", ar: "الزوج/ة — تاريخ الميلاد", fr: "Conjoint·e — date de naissance" },
-  f_spouse_nat:     { en: "Spouse — nationality", es: "Cónyuge — nacionalidad", ar: "الزوج/ة — الجنسية", fr: "Conjoint·e — nationalité" },
-  f_spouse_us:      { en: "Is spouse in the U.S.?", es: "¿Está el cónyuge en EE.UU.?", ar: "هل الزوج/ة في الولايات المتحدة؟", fr: "Le/la conjoint·e est-il/elle aux États-Unis?" },
-  f_child1_last:    { en: "Child 1 — last name", es: "Hijo/a 1 — apellido", ar: "الطفل ١ — اسم العائلة", fr: "Enfant 1 — nom" },
-  f_child1_first:   { en: "Child 1 — first name", es: "Hijo/a 1 — nombre", ar: "الطفل ١ — الاسم الأول", fr: "Enfant 1 — prénom" },
-  f_child1_dob:     { en: "Child 1 — date of birth", es: "Hijo/a 1 — fecha de nacimiento", ar: "الطفل ١ — تاريخ الميلاد", fr: "Enfant 1 — date de naissance" },
-  f_child1_nat:     { en: "Child 1 — nationality", es: "Hijo/a 1 — nacionalidad", ar: "الطفل ١ — الجنسية", fr: "Enfant 1 — nationalité" },
-  f_child1_us:      { en: "Child 1 — in the U.S.?", es: "Hijo/a 1 — ¿en EE.UU.?", ar: "الطفل ١ — في الولايات المتحدة؟", fr: "Enfant 1 — aux États-Unis?" },
-  f_child2_last:    { en: "Child 2 — last name", es: "Hijo/a 2 — apellido", ar: "الطفل ٢ — اسم العائلة", fr: "Enfant 2 — nom" },
-  f_child2_first:   { en: "Child 2 — first name", es: "Hijo/a 2 — nombre", ar: "الطفل ٢ — الاسم الأول", fr: "Enfant 2 — prénom" },
-  f_child2_dob:     { en: "Child 2 — date of birth", es: "Hijo/a 2 — fecha de nacimiento", ar: "الطفل ٢ — تاريخ الميلاد", fr: "Enfant 2 — date de naissance" },
-  f_child2_nat:     { en: "Child 2 — nationality", es: "Hijo/a 2 — nacionalidad", ar: "الطفل ٢ — الجنسية", fr: "Enfant 2 — nationalité" },
-  f_child2_us:      { en: "Child 2 — in the U.S.?", es: "Hijo/a 2 — ¿en EE.UU.?", ar: "الطفل ٢ — في الولايات المتحدة؟", fr: "Enfant 2 — aux États-Unis?" },
-  f_sib1_last:      { en: "Sibling 1 — last name", es: "Hermano/a 1 — apellido", ar: "الأخ/الأخت ١ — اسم العائلة", fr: "Frère/Sœur 1 — nom" },
-  f_sib1_first:     { en: "Sibling 1 — first name", es: "Hermano/a 1 — nombre", ar: "الأخ/الأخت ١ — الاسم الأول", fr: "Frère/Sœur 1 — prénom" },
-  f_sib1_dob:       { en: "Sibling 1 — date of birth", es: "Hermano/a 1 — fecha de nacimiento", ar: "الأخ/الأخت ١ — تاريخ الميلاد", fr: "Frère/Sœur 1 — date de naissance" },
-  f_sib1_nat:       { en: "Sibling 1 — nationality", es: "Hermano/a 1 — nacionalidad", ar: "الأخ/الأخت ١ — الجنسية", fr: "Frère/Sœur 1 — nationalité" },
-  f_sib1_loc:       { en: "Sibling 1 — current country", es: "Hermano/a 1 — país actual", ar: "الأخ/الأخت ١ — البلد الحالي", fr: "Frère/Sœur 1 — pays actuel" },
-  f_sib2_last:      { en: "Sibling 2 — last name", es: "Hermano/a 2 — apellido", ar: "الأخ/الأخت ٢ — اسم العائلة", fr: "Frère/Sœur 2 — nom" },
-  f_sib2_first:     { en: "Sibling 2 — first name", es: "Hermano/a 2 — nombre", ar: "الأخ/الأخت ٢ — الاسم الأول", fr: "Frère/Sœur 2 — prénom" },
-  f_sib2_dob:       { en: "Sibling 2 — date of birth", es: "Hermano/a 2 — fecha de nacimiento", ar: "الأخ/الأخت ٢ — تاريخ الميلاد", fr: "Frère/Sœur 2 — date de naissance" },
-  f_sib2_nat:       { en: "Sibling 2 — nationality", es: "Hermano/a 2 — nacionalidad", ar: "الأخ/الأخت ٢ — الجنسية", fr: "Frère/Sœur 2 — nationalité" },
-  f_sib2_loc:       { en: "Sibling 2 — current country", es: "Hermano/a 2 — país actual", ar: "الأخ/الأخت ٢ — البلد الحالي", fr: "Frère/Sœur 2 — pays actuel" },
-  f_curr_addr:      { en: "Current address in the U.S.", es: "Dirección actual en EE.UU.", ar: "العنوان الحالي في الولايات المتحدة", fr: "Adresse actuelle aux États-Unis" },
-  f_home_addr:      { en: "Last address in home country", es: "Última dirección en su país de origen", ar: "آخر عنوان في بلدك الأصلي", fr: "Dernière adresse dans votre pays d'origine" },
-  f_education:      { en: "Highest level of education", es: "Nivel más alto de educación", ar: "أعلى مستوى تعليمي", fr: "Niveau d'éducation le plus élevé" },
-  f_occupation:     { en: "Current occupation", es: "Ocupación actual", ar: "المهنة الحالية", fr: "Profession actuelle" },
-  f_prev_addr1:     { en: "Previous address 1", es: "Dirección anterior 1", ar: "العنوان السابق ١", fr: "Adresse précédente 1" },
-  f_prev_addr1_from:{ en: "Previous address 1 — from", es: "Dirección anterior 1 — desde", ar: "العنوان السابق ١ — من", fr: "Adresse précédente 1 — depuis" },
-  f_prev_addr1_to:  { en: "Previous address 1 — to", es: "Dirección anterior 1 — hasta", ar: "العنوان السابق ١ — حتى", fr: "Adresse précédente 1 — jusqu'à" },
-  f_prev_addr2:     { en: "Previous address 2", es: "Dirección anterior 2", ar: "العنوان السابق ٢", fr: "Adresse précédente 2" },
-  f_prev_addr2_from:{ en: "Previous address 2 — from", es: "Dirección anterior 2 — desde", ar: "العنوان السابق ٢ — من", fr: "Adresse précédente 2 — depuis" },
-  f_prev_addr2_to:  { en: "Previous address 2 — to", es: "Dirección anterior 2 — hasta", ar: "العنوان السابق ٢ — حتى", fr: "Adresse précédente 2 — jusqu'à" },
-  f_basis_race:     { en: "Basis: Race", es: "Motivo: Raza", ar: "الأساس: العرق", fr: "Motif: Race" },
-  f_basis_religion: { en: "Basis: Religion", es: "Motivo: Religión", ar: "الأساس: الدين", fr: "Motif: Religion" },
-  f_basis_nat:      { en: "Basis: Nationality", es: "Motivo: Nacionalidad", ar: "الأساس: الجنسية", fr: "Motif: Nationalité" },
-  f_basis_political:{ en: "Basis: Political opinion", es: "Motivo: Opinión política", ar: "الأساس: الرأي السياسي", fr: "Motif: Opinion politique" },
-  f_basis_social:   { en: "Basis: Membership in a particular social group", es: "Motivo: Pertenencia a un grupo social", ar: "الأساس: الانتماء لمجموعة اجتماعية", fr: "Motif: Appartenance à un groupe social particulier" },
-  f_persecution:    { en: "Describe the harm you suffered or fear", es: "Describa el daño que sufrió o teme", ar: "صف الأذى الذي عانيت منه أو تخشاه", fr: "Décrivez le préjudice que vous avez subi ou craignez" },
-  f_persecution_hint:{ en: "Include: who harmed you or who you fear, what happened, when and where, and why (race, religion, nationality, political opinion, or social group).", es: "Incluya: quién le dañó o a quién teme, qué pasó, cuándo y dónde, y por qué (raza, religión, nacionalidad, opinión política o grupo social).", ar: "أذكر: من آذاك أو من تخشاه، ماذا حدث، متى وأين، ولماذا (العرق، الدين، الجنسية، الرأي السياسي، أو المجموعة الاجتماعية).", fr: "Incluez: qui vous a nui, ce qui s'est passé, quand et où, et pourquoi (race, religion, nationalité, opinion politique ou groupe social)." },
-  f_harm_govt:      { en: "Were you or your family harmed by your home government?", es: "¿Usted o su familia fue dañada por su gobierno?", ar: "هل تعرضت أنت أو عائلتك للأذى من حكومة بلدك؟", fr: "Vous ou votre famille avez-vous été lésé par votre gouvernement?" },
-  f_harm_others:    { en: "Were you or your family harmed by non-government groups?", es: "¿Usted o su familia fue dañada por grupos no gubernamentales?", ar: "هل تعرضت أنت أو عائلتك للأذى من جهات غير حكومية؟", fr: "Vous ou votre famille avez-vous été lésé par des groupes non gouvernementaux?" },
-  f_no_protection:  { en: "If harmed by non-government groups — why couldn't your government protect you?", es: "Si fue dañado por grupos no gubernamentales — ¿por qué su gobierno no pudo protegerle?", ar: "إن تعرضت للأذى من جهات غير حكومية — لماذا لم تستطع حكومتك حمايتك؟", fr: "Si lésé par des groupes non gouvernementaux — pourquoi votre gouvernement n'a-t-il pas pu vous protéger?" },
-  f_relocate:       { en: "Could you safely relocate within your home country?", es: "¿Podría reubicarse de forma segura dentro de su país?", ar: "هل كان بإمكانك الانتقال بأمان داخل بلدك؟", fr: "Pourriez-vous vous réinstaller en sécurité dans votre pays?" },
-  f_no_relocate:    { en: "If no — explain why you could not relocate", es: "Si no — explique por qué no pudo reubicarse", ar: "إن لا — اشرح لماذا لم تستطع الانتقال", fr: "Si non — expliquez pourquoi vous ne pouviez pas vous réinstaller" },
-  f_prior_asylum:   { en: "Have you or your family ever applied for asylum before?", es: "¿Usted o su familia ha solicitado asilo antes?", ar: "هل تقدمت أنت أو عائلتك بطلب لجوء من قبل؟", fr: "Vous ou votre famille avez-vous déjà demandé l'asile?" },
-  f_prior_details:  { en: "If yes — provide details (country, outcome, date)", es: "Si sí — proporcione detalles (país, resultado, fecha)", ar: "إن نعم — قدم التفاصيل (البلد، النتيجة، التاريخ)", fr: "Si oui — fournir des détails (pays, résultat, date)" },
-  f_arrested:       { en: "Have you or your family ever been arrested or convicted in any country?", es: "¿Usted o su familia ha sido arrestada o condenada en algún país?", ar: "هل اعتُقلت أنت أو عائلتك أو صدر بحقكم حكم إدانة؟", fr: "Vous ou votre famille avez-vous été arrêté ou condamné?" },
-  f_arrested_det:   { en: "If yes — explain circumstances", es: "Si sí — explique las circunstancias", ar: "إن نعم — اشرح الظروف", fr: "Si oui — expliquez les circonstances" },
-  f_orgs:           { en: "Have you or your family been members of any political party, military, or organization?", es: "¿Usted o su familia ha sido miembro de algún partido político, militar u organización?", ar: "هل انتمى أنت أو عائلتك إلى أي حزب سياسي أو جيش أو منظمة؟", fr: "Vous ou votre famille avez-vous été membres d'un parti politique ou d'une organisation?" },
-  f_orgs_det:       { en: "If yes — describe the organization and your role", es: "Si sí — describa la organización y su papel", ar: "إن نعم — صف المنظمة ودورك فيها", fr: "Si oui — décrivez l'organisation et votre rôle" },
-  f_imm_status:     { en: "Current immigration status in the U.S.", es: "Estado migratorio actual en EE.UU.", ar: "وضعك الهجري الحالي في الولايات المتحدة", fr: "Statut d'immigration actuel aux États-Unis" },
-  f_entry_date:     { en: "Date of last entry into the U.S.", es: "Fecha de última entrada a EE.UU.", ar: "تاريخ آخر دخول إلى الولايات المتحدة", fr: "Date de dernière entrée aux États-Unis" },
-  f_port_entry:     { en: "Port of entry (city / state / airport)", es: "Puerto de entrada (ciudad / estado / aeropuerto)", ar: "منفذ الدخول (المدينة / الولاية / المطار)", fr: "Point d'entrée (ville / état / aéroport)" },
-  opt_male:         { en: "Male", es: "Masculino", ar: "ذكر", fr: "Homme" },
-  opt_female:       { en: "Female", es: "Femenino", ar: "أنثى", fr: "Femme" },
-  opt_single:       { en: "Single", es: "Soltero/a", ar: "أعزب/عزباء", fr: "Célibataire" },
-  opt_married:      { en: "Married", es: "Casado/a", ar: "متزوج/ة", fr: "Marié·e" },
-  opt_divorced:     { en: "Divorced", es: "Divorciado/a", ar: "مطلق/ة", fr: "Divorcé·e" },
-  opt_widowed:      { en: "Widowed", es: "Viudo/a", ar: "أرمل/ة", fr: "Veuf/Veuve" },
-  opt_separated:    { en: "Separated", es: "Separado/a", ar: "منفصل/ة", fr: "Séparé·e" },
-  opt_yes:          { en: "Yes", es: "Sí", ar: "نعم", fr: "Oui" },
-  opt_no:           { en: "No", es: "No", ar: "لا", fr: "Non" },
-  opt_na:           { en: "N/A", es: "N/A", ar: "لا ينطبق", fr: "N/A" },
-  opt_edu_none:     { en: "None", es: "Ninguno", ar: "لا شيء", fr: "Aucun" },
-  opt_edu_some_pri: { en: "Some primary", es: "Primaria incompleta", ar: "بعض التعليم الابتدائي", fr: "Primaire partiel" },
-  opt_edu_pri:      { en: "Primary complete", es: "Primaria completa", ar: "تعليم ابتدائي كامل", fr: "Primaire complet" },
-  opt_edu_some_sec: { en: "Some secondary", es: "Secundaria incompleta", ar: "بعض التعليم الثانوي", fr: "Secondaire partiel" },
-  opt_edu_sec:      { en: "Secondary complete", es: "Secundaria completa", ar: "تعليم ثانوي كامل", fr: "Secondaire complet" },
-  opt_edu_some_uni: { en: "Some university", es: "Universidad incompleta", ar: "بعض التعليم الجامعي", fr: "Université partielle" },
-  opt_edu_uni:      { en: "University degree", es: "Título universitario", ar: "شهادة جامعية", fr: "Diplôme universitaire" },
-  opt_edu_grad:     { en: "Graduate/professional degree", es: "Posgrado/título profesional", ar: "درجة الدراسات العليا", fr: "Diplôme de master/professionnel" },
-  opt_no_status:    { en: "No status", es: "Sin estatus", ar: "بدون وضع قانوني", fr: "Sans statut" },
-  opt_visa_exp:     { en: "Visa (expired)", es: "Visa (vencida)", ar: "تأشيرة (منتهية)", fr: "Visa (expiré)" },
-  opt_visa_val:     { en: "Visa (valid)", es: "Visa (vigente)", ar: "تأشيرة (سارية)", fr: "Visa (valide)" },
-  opt_parolee:      { en: "Parolee", es: "Libertad condicional", ar: "إفراج مشروط", fr: "Libéré conditionnellement" },
-  opt_other:        { en: "Other", es: "Otro", ar: "أخرى", fr: "Autre" },
+const UI: Record<string,Record<string,string>> = {
+  title:       {en:"Asylum Application Helper",es:"Asistente de Solicitud de Asilo",ar:"مساعد طلب اللجوء",fr:"Assistant de Demande d'Asile"},
+  subtitle:    {en:"USCIS Form I-589",es:"Formulario USCIS I-589",ar:"نموذج USCIS I-589",fr:"Formulaire USCIS I-589"},
+  desc:        {en:"Fill each section in your language. At the end review both versions and export as PDF.",es:"Complete cada sección en su idioma. Al final revise ambas versiones y exporte como PDF.",ar:"أكمل كل قسم بلغتك. في النهاية راجع كلتا النسختين وصدّر كملف PDF.",fr:"Remplissez chaque section dans votre langue. À la fin révisez les deux versions et exportez en PDF."},
+  answered_in: {en:"I answered in:",es:"Respondí en:",ar:"أجبت بـ:",fr:"J'ai répondu en:"},
+  in_english:  {en:"English",es:"Inglés",ar:"الإنجليزية",fr:"Anglais"},
+  type_here:   {en:"Type here…",es:"Escriba aquí…",ar:"اكتب هنا…",fr:"Écrivez ici…"},
+  select:      {en:"— Select —",es:"— Seleccione —",ar:"— اختر —",fr:"— Sélectionner —"},
+  prev:        {en:"← Previous",es:"← Anterior",ar:"→ السابق",fr:"← Précédent"},
+  next:        {en:"Next →",es:"Siguiente →",ar:"← التالي",fr:"Suivant →"},
+  review:      {en:"Review & Export →",es:"Revisar y Exportar →",ar:"مراجعة وتصدير ←",fr:"Réviser et Exporter →"},
+  translating: {en:"Translating…",es:"Traduciendo…",ar:"جارٍ الترجمة…",fr:"Traduction en cours…"},
+  trans_here:  {en:"Translation will appear here",es:"La traducción aparecerá aquí",ar:"ستظهر الترجمة هنا",fr:"La traduction apparaîtra ici"},
+  needs_trans: {en:"⚠ needs English translation",es:"⚠ necesita traducción al inglés",ar:"⚠ يحتاج ترجمة إنجليزية",fr:"⚠ nécessite traduction anglaise"},
+  filled:      {en:"fields filled",es:"campos completados",ar:"حقول مكتملة",fr:"champs remplis"},
+  rev_title:   {en:"Review Your Application",es:"Revise Su Solicitud",ar:"راجع طلبك",fr:"Révisez Votre Demande"},
+  rev_desc:    {en:"Check both versions. Export as PDF when ready.",es:"Revise ambas versiones. Exporte como PDF cuando esté listo.",ar:"راجع كلتا النسختين. صدّر كملف PDF عند الاستعداد.",fr:"Vérifiez les deux versions. Exportez en PDF quand vous êtes prêt."},
+  back:        {en:"← Back to form",es:"← Volver al formulario",ar:"→ العودة للنموذج",fr:"← Retour au formulaire"},
+  dl_en:       {en:"↓ Download English PDF",es:"↓ Descargar PDF en inglés",ar:"↓ تحميل PDF بالإنجليزية",fr:"↓ Télécharger PDF anglais"},
+  dl_nat:      {en:"↓ Download your language PDF",es:"↓ Descargar PDF en español",ar:"↓ تحميل PDF بالعربية",fr:"↓ Télécharger PDF français"},
+  gen_pdf:     {en:"Generating PDF…",es:"Generando PDF…",ar:"جارٍ إنشاء PDF…",fr:"Génération du PDF…"},
+  your_lang:   {en:"Your language — for review",es:"Tu idioma — para revisar",ar:"لغتك — للمراجعة",fr:"Votre langue — pour révision"},
+  english_ver: {en:"English — for submission",es:"Inglés — para presentar",ar:"الإنجليزية — للتقديم",fr:"Anglais — pour soumission"},
 };
 
-const SECTIONS: Section[] = [
-  {
-    id: "applicant", titleKey: "sec_about_title", shortKey: "sec_about_short",
-    fields: [
-      { id: "last_name", labelKey: "f_last_name", type: "text", required: true },
-      { id: "first_name", labelKey: "f_first_name", type: "text", required: true },
-      { id: "middle_name", labelKey: "f_middle_name", type: "text" },
-      { id: "aliases", labelKey: "f_aliases", type: "text" },
-      { id: "dob", labelKey: "f_dob", type: "date", required: true },
-      { id: "city_birth", labelKey: "f_city_birth", type: "text", required: true },
-      { id: "country_birth", labelKey: "f_country_birth", type: "text", required: true },
-      { id: "nationality", labelKey: "f_nationality", type: "text", required: true },
-      { id: "race", labelKey: "f_race", type: "text" },
-      { id: "religion", labelKey: "f_religion", type: "text" },
-      { id: "sex", labelKey: "f_sex", type: "select", optionKeys: ["opt_male", "opt_female"] },
-      { id: "marital", labelKey: "f_marital", type: "select", optionKeys: ["opt_single", "opt_married", "opt_divorced", "opt_widowed", "opt_separated"] },
-    ],
-  },
-  {
-    id: "family", titleKey: "sec_family_title", shortKey: "sec_family_short",
-    fields: [
-      { id: "spouse_last", labelKey: "f_spouse_last", type: "text" },
-      { id: "spouse_first", labelKey: "f_spouse_first", type: "text" },
-      { id: "spouse_dob", labelKey: "f_spouse_dob", type: "date" },
-      { id: "spouse_nat", labelKey: "f_spouse_nat", type: "text" },
-      { id: "spouse_us", labelKey: "f_spouse_us", type: "select", optionKeys: ["opt_yes", "opt_no", "opt_na"] },
-      { id: "child1_last", labelKey: "f_child1_last", type: "text" },
-      { id: "child1_first", labelKey: "f_child1_first", type: "text" },
-      { id: "child1_dob", labelKey: "f_child1_dob", type: "date" },
-      { id: "child1_nat", labelKey: "f_child1_nat", type: "text" },
-      { id: "child1_us", labelKey: "f_child1_us", type: "select", optionKeys: ["opt_yes", "opt_no", "opt_na"] },
-      { id: "child2_last", labelKey: "f_child2_last", type: "text" },
-      { id: "child2_first", labelKey: "f_child2_first", type: "text" },
-      { id: "child2_dob", labelKey: "f_child2_dob", type: "date" },
-      { id: "child2_nat", labelKey: "f_child2_nat", type: "text" },
-      { id: "child2_us", labelKey: "f_child2_us", type: "select", optionKeys: ["opt_yes", "opt_no", "opt_na"] },
-      { id: "sib1_last", labelKey: "f_sib1_last", type: "text" },
-      { id: "sib1_first", labelKey: "f_sib1_first", type: "text" },
-      { id: "sib1_dob", labelKey: "f_sib1_dob", type: "date" },
-      { id: "sib1_nat", labelKey: "f_sib1_nat", type: "text" },
-      { id: "sib1_loc", labelKey: "f_sib1_loc", type: "text" },
-      { id: "sib2_last", labelKey: "f_sib2_last", type: "text" },
-      { id: "sib2_first", labelKey: "f_sib2_first", type: "text" },
-      { id: "sib2_dob", labelKey: "f_sib2_dob", type: "date" },
-      { id: "sib2_nat", labelKey: "f_sib2_nat", type: "text" },
-      { id: "sib2_loc", labelKey: "f_sib2_loc", type: "text" },
-    ],
-  },
-  {
-    id: "background", titleKey: "sec_bg_title", shortKey: "sec_bg_short",
-    fields: [
-      { id: "curr_addr", labelKey: "f_curr_addr", type: "textarea" },
-      { id: "home_addr", labelKey: "f_home_addr", type: "textarea" },
-      { id: "education", labelKey: "f_education", type: "select", optionKeys: ["opt_edu_none","opt_edu_some_pri","opt_edu_pri","opt_edu_some_sec","opt_edu_sec","opt_edu_some_uni","opt_edu_uni","opt_edu_grad"] },
-      { id: "occupation", labelKey: "f_occupation", type: "text" },
-      { id: "prev_addr1", labelKey: "f_prev_addr1", type: "textarea" },
-      { id: "prev_addr1_from", labelKey: "f_prev_addr1_from", type: "date" },
-      { id: "prev_addr1_to", labelKey: "f_prev_addr1_to", type: "date" },
-      { id: "prev_addr2", labelKey: "f_prev_addr2", type: "textarea" },
-      { id: "prev_addr2_from", labelKey: "f_prev_addr2_from", type: "date" },
-      { id: "prev_addr2_to", labelKey: "f_prev_addr2_to", type: "date" },
-    ],
-  },
-  {
-    id: "claim", titleKey: "sec_claim_title", shortKey: "sec_claim_short",
-    fields: [
-      { id: "basis_race", labelKey: "f_basis_race", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "basis_religion", labelKey: "f_basis_religion", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "basis_nat", labelKey: "f_basis_nat", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "basis_political", labelKey: "f_basis_political", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "basis_social", labelKey: "f_basis_social", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "persecution", labelKey: "f_persecution", type: "textarea", tall: true, hintKey: "f_persecution_hint" },
-      { id: "harm_govt", labelKey: "f_harm_govt", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "harm_others", labelKey: "f_harm_others", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "no_protection", labelKey: "f_no_protection", type: "textarea" },
-      { id: "relocate", labelKey: "f_relocate", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "no_relocate", labelKey: "f_no_relocate", type: "textarea" },
-    ],
-  },
-  {
-    id: "additional", titleKey: "sec_add_title", shortKey: "sec_add_short",
-    fields: [
-      { id: "prior_asylum", labelKey: "f_prior_asylum", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "prior_details", labelKey: "f_prior_details", type: "textarea" },
-      { id: "arrested", labelKey: "f_arrested", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "arrested_det", labelKey: "f_arrested_det", type: "textarea" },
-      { id: "orgs", labelKey: "f_orgs", type: "select", optionKeys: ["opt_yes","opt_no"] },
-      { id: "orgs_det", labelKey: "f_orgs_det", type: "textarea" },
-      { id: "imm_status", labelKey: "f_imm_status", type: "select", optionKeys: ["opt_no_status","opt_visa_exp","opt_visa_val","opt_parolee","opt_other"] },
-      { id: "entry_date", labelKey: "f_entry_date", type: "date" },
-      { id: "port_entry", labelKey: "f_port_entry", type: "text" },
-    ],
-  },
-];
+const SEX: string[][] = [["Male","Masculino","ذكر","Homme"],["Female","Femenino","أنثى","Femme"]];
+const MARITAL: string[][] = [["Single","Soltero/a","أعزب/عزباء","Célibataire"],["Married","Casado/a","متزوج/ة","Marié·e"],["Divorced","Divorciado/a","مطلق/ة","Divorcé·e"],["Widowed","Viudo/a","أرمل/ة","Veuf/Veuve"],["Separated","Separado/a","منفصل/ة","Séparé·e"]];
+const COURT: string[][] = [["Never been in proceedings","Nunca en procedimientos","لم أكن في إجراءات قط","Jamais en procédure"],["Currently in proceedings","Actualmente en procedimientos","حالياً في إجراءات","Actuellement en procédure"],["Not now, but have been before","No ahora, pero estuve antes","لا الآن، لكن كنت في إجراءات","Pas maintenant, mais l'ai été"]];
 
-// ─── Translation (Google Translate v2) ────────────────────────────
-const cache: Record<string, string> = {};
-
-function s(key: string, lang: string): string {
-  return STRINGS[key]?.[lang] ?? STRINGS[key]?.["en"] ?? key;
+function childFields(n: number): Field[] {
+  const p = `c${n}_`;
+  const N = String(n);
+  const li = ["en","es","ar","fr"].indexOf;
+  return [
+    {id:`${p}a_num`,       en:`Child ${N} — 1. A-Number (if any)`,                              es:`Hijo/a ${N} — 1. Número A`,                    ar:`الطفل ${N} — ١. رقم A`,                  fr:`Enfant ${N} — 1. Numéro A`,                        type:"text"},
+    {id:`${p}passport`,    en:`Child ${N} — 2. Passport/ID Card Number (if any)`,               es:`Hijo/a ${N} — 2. Número de pasaporte/ID`,       ar:`الطفل ${N} — ٢. رقم جواز السفر`,        fr:`Enfant ${N} — 2. Numéro de passeport/ID`,          type:"text"},
+    {id:`${p}marital`,     en:`Child ${N} — 3. Marital Status`,                                 es:`Hijo/a ${N} — 3. Estado civil`,                ar:`الطفل ${N} — ٣. الحالة الاجتماعية`,     fr:`Enfant ${N} — 3. État civil`,                      type:"select", opts:MARITAL},
+    {id:`${p}ssn`,         en:`Child ${N} — 4. U.S. Social Security Number (if any)`,           es:`Hijo/a ${N} — 4. Número de Seguro Social`,      ar:`الطفل ${N} — ٤. رقم الضمان الاجتماعي`, fr:`Enfant ${N} — 4. Numéro de sécurité sociale`,     type:"text"},
+    {id:`${p}last`,        en:`Child ${N} — 5. Complete Last Name`,                             es:`Hijo/a ${N} — 5. Apellido completo`,            ar:`الطفل ${N} — ٥. اسم العائلة الكامل`,    fr:`Enfant ${N} — 5. Nom de famille complet`,          type:"text"},
+    {id:`${p}first`,       en:`Child ${N} — 6. First Name`,                                     es:`Hijo/a ${N} — 6. Nombre`,                      ar:`الطفل ${N} — ٦. الاسم الأول`,           fr:`Enfant ${N} — 6. Prénom`,                          type:"text"},
+    {id:`${p}middle`,      en:`Child ${N} — 7. Middle Name`,                                    es:`Hijo/a ${N} — 7. Segundo nombre`,              ar:`الطفل ${N} — ٧. الاسم الأوسط`,          fr:`Enfant ${N} — 7. Deuxième prénom`,                 type:"text"},
+    {id:`${p}dob`,         en:`Child ${N} — 8. Date of Birth (mm/dd/yyyy)`,                     es:`Hijo/a ${N} — 8. Fecha de nacimiento`,          ar:`الطفل ${N} — ٨. تاريخ الميلاد`,         fr:`Enfant ${N} — 8. Date de naissance`,               type:"date"},
+    {id:`${p}birth_city`,  en:`Child ${N} — 9. City and Country of Birth`,                      es:`Hijo/a ${N} — 9. Ciudad y país de nacimiento`, ar:`الطفل ${N} — ٩. مدينة وبلد الميلاد`,    fr:`Enfant ${N} — 9. Ville et pays de naissance`,      type:"text"},
+    {id:`${p}nationality`, en:`Child ${N} — 10. Nationality (Citizenship)`,                     es:`Hijo/a ${N} — 10. Nacionalidad`,               ar:`الطفل ${N} — ١٠. الجنسية`,              fr:`Enfant ${N} — 10. Nationalité`,                    type:"text"},
+    {id:`${p}race`,        en:`Child ${N} — 11. Race, Ethnic, or Tribal Group`,                 es:`Hijo/a ${N} — 11. Raza/grupo étnico`,           ar:`الطفل ${N} — ١١. العرق`,                fr:`Enfant ${N} — 11. Race/groupe ethnique`,            type:"text"},
+    {id:`${p}sex`,         en:`Child ${N} — 12. Sex`,                                           es:`Hijo/a ${N} — 12. Sexo`,                       ar:`الطفل ${N} — ١٢. الجنس`,                fr:`Enfant ${N} — 12. Sexe`,                           type:"select", opts:SEX},
+    {id:`${p}in_us`,       en:`Child ${N} — 13. Is this child in the U.S.?`,                    es:`Hijo/a ${N} — 13. ¿Está en EE.UU.?`,           ar:`الطفل ${N} — ١٣. هل الطفل في أمريكا؟`, fr:`Enfant ${N} — 13. Cet enfant est-il/elle aux États-Unis?`, type:"yesno"},
+    {id:`${p}entry_place`, en:`Child ${N} — 14. Place of last entry into the U.S.`,             es:`Hijo/a ${N} — 14. Lugar de última entrada`,    ar:`الطفل ${N} — ١٤. مكان آخر دخول لأمريكا`,fr:`Enfant ${N} — 14. Lieu de dernière entrée`,        type:"text"},
+    {id:`${p}entry_date`,  en:`Child ${N} — 15. Date of last entry (mm/dd/yyyy)`,               es:`Hijo/a ${N} — 15. Fecha de última entrada`,    ar:`الطفل ${N} — ١٥. تاريخ آخر دخول`,       fr:`Enfant ${N} — 15. Date de dernière entrée`,        type:"date"},
+    {id:`${p}i94`,         en:`Child ${N} — 16. I-94 Number (if any)`,                          es:`Hijo/a ${N} — 16. Número I-94`,                ar:`الطفل ${N} — ١٦. رقم I-94`,              fr:`Enfant ${N} — 16. Numéro I-94`,                    type:"text"},
+    {id:`${p}status_admit`,en:`Child ${N} — 17. Status when last admitted (Visa type, if any)`, es:`Hijo/a ${N} — 17. Estatus al ser admitido`,    ar:`الطفل ${N} — ١٧. الحالة عند آخر دخول`,  fr:`Enfant ${N} — 17. Statut lors de la dernière admission`, type:"text"},
+    {id:`${p}cur_status`,  en:`Child ${N} — 18. Current immigration status`,                    es:`Hijo/a ${N} — 18. Estatus migratorio actual`,  ar:`الطفل ${N} — ١٨. الحالة المهاجرية الحالية`,fr:`Enfant ${N} — 18. Statut d'immigration actuel`, type:"text"},
+    {id:`${p}status_exp`,  en:`Child ${N} — 19. Expiration date of authorized stay (mm/dd/yyyy)`,es:`Hijo/a ${N} — 19. Fecha vencimiento estadía`, ar:`الطفل ${N} — ١٩. تاريخ انتهاء الإقامة`, fr:`Enfant ${N} — 19. Date d'expiration du séjour`,    type:"date"},
+    {id:`${p}court`,       en:`Child ${N} — 20. Is this child in Immigration Court proceedings?`,es:`Hijo/a ${N} — 20. ¿En procedimientos de tribunal?`,ar:`الطفل ${N} — ٢٠. في إجراءات محكمة الهجرة؟`,fr:`Enfant ${N} — 20. En procédure au tribunal?`,type:"yesno"},
+    {id:`${p}include`,     en:`Child ${N} — 21. Include this child in this application?`,       es:`Hijo/a ${N} — 21. ¿Incluir en esta solicitud?`,ar:`الطفل ${N} — ٢١. هل تضم للطلب؟`,        fr:`Enfant ${N} — 21. Inclure dans la demande?`,       type:"yesno"},
+  ];
 }
 
+function resRow(n: number): Field[] {
+  const p = `r${n}_`;
+  const N = String(n);
+  return [
+    {id:`${p}street`,  en:`2. Residence (past 5 yrs) — Row ${N} — Number and Street`,      es:`2. Residencias — Fila ${N} — Calle y número`,      ar:`٢. مساكن — صف ${N} — الشارع والرقم`,      fr:`2. Résidences — Rangée ${N} — Numéro et rue`,      type:"text"},
+    {id:`${p}city`,    en:`2. Residence (past 5 yrs) — Row ${N} — City/Town`,               es:`2. Residencias — Fila ${N} — Ciudad/Pueblo`,       ar:`٢. مساكن — صف ${N} — المدينة/البلدة`,     fr:`2. Résidences — Rangée ${N} — Ville/Commune`,      type:"text"},
+    {id:`${p}dept`,    en:`2. Residence (past 5 yrs) — Row ${N} — Dept/Province/State`,     es:`2. Residencias — Fila ${N} — Dpto/Provincia/Estado`,ar:`٢. مساكن — صف ${N} — المحافظة/الإقليم`,  fr:`2. Résidences — Rangée ${N} — Département/Province/État`, type:"text"},
+    {id:`${p}country`, en:`2. Residence (past 5 yrs) — Row ${N} — Country`,                 es:`2. Residencias — Fila ${N} — País`,                ar:`٢. مساكن — صف ${N} — البلد`,              fr:`2. Résidences — Rangée ${N} — Pays`,               type:"text"},
+    {id:`${p}from`,    en:`2. Residence (past 5 yrs) — Row ${N} — From (Mo/Yr)`,            es:`2. Residencias — Fila ${N} — Desde (Mes/Año)`,     ar:`٢. مساكن — صف ${N} — من (شهر/سنة)`,      fr:`2. Résidences — Rangée ${N} — Depuis (Mois/An)`,   type:"text"},
+    {id:`${p}to`,      en:`2. Residence (past 5 yrs) — Row ${N} — To (Mo/Yr)`,              es:`2. Residencias — Fila ${N} — Hasta (Mes/Año)`,     ar:`٢. مساكن — صف ${N} — حتى (شهر/سنة)`,     fr:`2. Résidences — Rangée ${N} — Jusqu'à (Mois/An)`,  type:"text"},
+  ];
+}
 
-async function translateToEnglish(text: string, sourceLang: string): Promise<string> {
-  if (!text?.trim() || sourceLang === "en") return text;
-  const cacheKey = `en::${text}`;
-  if (cache[cacheKey]) return cache[cacheKey];
-  const apiKey = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY;
-  if (!apiKey) return text;
+function eduRow(n: number): Field[] {
+  const p = `edu${n}_`;
+  const N = String(n);
+  return [
+    {id:`${p}name`, en:`3. Education — School ${N} — Name of School`,          es:`3. Educación — Escuela ${N} — Nombre`,           ar:`٣. التعليم — مدرسة ${N} — الاسم`,              fr:`3. Éducation — École ${N} — Nom`,           type:"text"},
+    {id:`${p}type`, en:`3. Education — School ${N} — Type of School`,          es:`3. Educación — Escuela ${N} — Tipo`,             ar:`٣. التعليم — مدرسة ${N} — النوع`,              fr:`3. Éducation — École ${N} — Type`,          type:"text"},
+    {id:`${p}loc`,  en:`3. Education — School ${N} — Location (Address)`,      es:`3. Educación — Escuela ${N} — Ubicación`,        ar:`٣. التعليم — مدرسة ${N} — الموقع (العنوان)`,  fr:`3. Éducation — École ${N} — Lieu (adresse)`,type:"text"},
+    {id:`${p}from`, en:`3. Education — School ${N} — Attended From (Mo/Yr)`,   es:`3. Educación — Escuela ${N} — Desde (Mes/Año)`, ar:`٣. التعليم — مدرسة ${N} — من (شهر/سنة)`,      fr:`3. Éducation — École ${N} — Depuis (Mois/An)`, type:"text"},
+    {id:`${p}to`,   en:`3. Education — School ${N} — Attended To (Mo/Yr)`,     es:`3. Educación — Escuela ${N} — Hasta (Mes/Año)`, ar:`٣. التعليم — مدرسة ${N} — حتى (شهر/سنة)`,     fr:`3. Éducation — École ${N} — Jusqu'à (Mois/An)`, type:"text"},
+  ];
+}
+
+function empRow(n: number): Field[] {
+  const p = `emp${n}_`;
+  const N = String(n);
+  return [
+    {id:`${p}name`, en:`4. Employment — Employer ${N} — Name and Address of Employer`, es:`4. Empleo — Empleador ${N} — Nombre y dirección`, ar:`٤. العمل — صاحب العمل ${N} — الاسم والعنوان`, fr:`4. Emploi — Employeur ${N} — Nom et adresse`, type:"text"},
+    {id:`${p}occ`,  en:`4. Employment — Employer ${N} — Your Occupation`,              es:`4. Empleo — Empleador ${N} — Su ocupación`,      ar:`٤. العمل — صاحب العمل ${N} — مهنتك`,          fr:`4. Emploi — Employeur ${N} — Votre profession`, type:"text"},
+    {id:`${p}from`, en:`4. Employment — Employer ${N} — From (Mo/Yr)`,                 es:`4. Empleo — Empleador ${N} — Desde (Mes/Año)`,  ar:`٤. العمل — صاحب العمل ${N} — من (شهر/سنة)`,  fr:`4. Emploi — Employeur ${N} — Depuis (Mois/An)`, type:"text"},
+    {id:`${p}to`,   en:`4. Employment — Employer ${N} — To (Mo/Yr)`,                   es:`4. Empleo — Empleador ${N} — Hasta (Mes/Año)`,  ar:`٤. العمل — صاحب العمل ${N} — حتى (شهر/سنة)`, fr:`4. Emploi — Employeur ${N} — Jusqu'à (Mois/An)`, type:"text"},
+  ];
+}
+
+function sibFields(n: number): Field[] {
+  const p = `sib${n}_`;
+  const N = String(n);
+  return [
+    {id:`${p}name`,     en:`5. Sibling ${N} — Full Name`,                       es:`5. Hermano/a ${N} — Nombre completo`,            ar:`٥. الأخ/الأخت ${N} — الاسم الكامل`,           fr:`5. Frère/Sœur ${N} — Nom complet`,           type:"text"},
+    {id:`${p}birth`,    en:`5. Sibling ${N} — City/Town and Country of Birth`,  es:`5. Hermano/a ${N} — Ciudad y país de nacimiento`,ar:`٥. الأخ/الأخت ${N} — مدينة وبلد الميلاد`,      fr:`5. Frère/Sœur ${N} — Ville et pays de naissance`, type:"text"},
+    {id:`${p}location`, en:`5. Sibling ${N} — Current Location`,                es:`5. Hermano/a ${N} — Ubicación actual`,           ar:`٥. الأخ/الأخت ${N} — الموقع الحالي`,          fr:`5. Frère/Sœur ${N} — Lieu actuel`,           type:"text"},
+    {id:`${p}deceased`, en:`5. Sibling ${N} — Deceased?`,                       es:`5. Hermano/a ${N} — ¿Fallecido/a?`,              ar:`٥. الأخ/الأخت ${N} — متوفى/ة؟`,               fr:`5. Frère/Sœur ${N} — Décédé·e?`,             type:"yesno"},
+  ];
+}
+
+const SECTIONS: Section[] = [
+  { id:"ai",
+    en:"Part A.I — Information About You", es:"Parte A.I — Información Sobre Usted", ar:"الجزء أ.١ — معلوماتك الشخصية", fr:"Partie A.I — Informations Vous Concernant",
+    short_en:"About You", short_es:"Sobre Usted", short_ar:"عنك", short_fr:"À Votre Sujet",
+    fields:[
+      {id:"convention_torture",en:"NOTE: Check Yes to also apply for withholding under Convention Against Torture",es:"NOTA: Marque Sí para solicitar también suspensión bajo la Convención Contra la Tortura",ar:"ملاحظة: اختر نعم لتقدم أيضاً بطلب تعليق الترحيل بموجب اتفاقية مناهضة التعذيب",fr:"NOTE: Sélectionnez Oui pour demander aussi la suspension d'expulsion en vertu de la Convention contre la Torture",type:"yesno"},
+      {id:"a_number",en:"1. Alien Registration Number (A-Number) (if any)",es:"1. Número de Registro de Extranjero (A-Number) (si tiene)",ar:"١. رقم تسجيل الأجنبي (A-Number) (إن وجد)",fr:"1. Numéro d'enregistrement étranger (A-Number) (si applicable)",type:"text"},
+      {id:"ssn",en:"2. U.S. Social Security Number (if any)",es:"2. Número de Seguro Social de EE.UU. (si tiene)",ar:"٢. رقم الضمان الاجتماعي الأمريكي (إن وجد)",fr:"2. Numéro de sécurité sociale US (si applicable)",type:"text"},
+      {id:"uscis_acct",en:"3. USCIS Online Account Number (if any)",es:"3. Número de Cuenta en Línea de USCIS (si tiene)",ar:"٣. رقم حساب USCIS الإلكتروني (إن وجد)",fr:"3. Numéro de compte USCIS en ligne (si applicable)",type:"text"},
+      {id:"last_name",en:"4. Complete Last Name",es:"4. Apellido completo",ar:"٤. اسم العائلة الكامل",fr:"4. Nom de famille complet",type:"text",req:true},
+      {id:"first_name",en:"5. First Name",es:"5. Nombre",ar:"٥. الاسم الأول",fr:"5. Prénom",type:"text",req:true},
+      {id:"middle_name",en:"6. Middle Name",es:"6. Segundo nombre",ar:"٦. الاسم الأوسط",fr:"6. Deuxième prénom",type:"text"},
+      {id:"aliases",en:"7. Other names used (include maiden name and aliases)",es:"7. Otros nombres usados (incluir apellido de soltera y alias)",ar:"٧. أسماء أخرى مستخدمة (بما في ذلك اسم قبل الزواج والأسماء المستعارة)",fr:"7. Autres noms utilisés (inclure nom de jeune fille et alias)",type:"text"},
+      {id:"res_street",en:"8. Residence in the U.S. — Street Number and Name",es:"8. Residencia en EE.UU. — Número y nombre de calle",ar:"٨. العنوان في أمريكا — رقم واسم الشارع",fr:"8. Résidence aux États-Unis — Numéro et nom de rue",type:"text",req:true},
+      {id:"res_apt",en:"8. Residence — Apt. Number",es:"8. Residencia — Número de apartamento",ar:"٨. العنوان — رقم الشقة",fr:"8. Résidence — Numéro d'appartement",type:"text"},
+      {id:"res_city",en:"8. Residence — City",es:"8. Residencia — Ciudad",ar:"٨. العنوان — المدينة",fr:"8. Résidence — Ville",type:"text",req:true},
+      {id:"res_state",en:"8. Residence — State",es:"8. Residencia — Estado",ar:"٨. العنوان — الولاية",fr:"8. Résidence — État",type:"text"},
+      {id:"res_zip",en:"8. Residence — Zip Code",es:"8. Residencia — Código postal",ar:"٨. العنوان — الرمز البريدي",fr:"8. Résidence — Code postal",type:"text"},
+      {id:"res_phone",en:"8. Residence — Telephone Number",es:"8. Residencia — Número de teléfono",ar:"٨. العنوان — رقم الهاتف",fr:"8. Résidence — Numéro de téléphone",type:"text"},
+      {id:"mail_care_of",en:"9. Mailing Address — In Care Of (if applicable)",es:"9. Dirección postal — A/c de (si aplica)",ar:"٩. عنوان البريد — بعناية (إن انطبق)",fr:"9. Adresse postale — Aux bons soins de (si applicable)",type:"text"},
+      {id:"mail_phone",en:"9. Mailing Address — Telephone Number",es:"9. Dirección postal — Número de teléfono",ar:"٩. عنوان البريد — رقم الهاتف",fr:"9. Adresse postale — Numéro de téléphone",type:"text"},
+      {id:"mail_street",en:"9. Mailing Address — Street Number and Name",es:"9. Dirección postal — Número y nombre de calle",ar:"٩. عنوان البريد — رقم واسم الشارع",fr:"9. Adresse postale — Numéro et nom de rue",type:"text"},
+      {id:"mail_apt",en:"9. Mailing Address — Apt. Number",es:"9. Dirección postal — Número de apartamento",ar:"٩. عنوان البريد — رقم الشقة",fr:"9. Adresse postale — Numéro d'appartement",type:"text"},
+      {id:"mail_city",en:"9. Mailing Address — City",es:"9. Dirección postal — Ciudad",ar:"٩. عنوان البريد — المدينة",fr:"9. Adresse postale — Ville",type:"text"},
+      {id:"mail_state",en:"9. Mailing Address — State",es:"9. Dirección postal — Estado",ar:"٩. عنوان البريد — الولاية",fr:"9. Adresse postale — État",type:"text"},
+      {id:"mail_zip",en:"9. Mailing Address — Zip Code",es:"9. Dirección postal — Código postal",ar:"٩. عنوان البريد — الرمز البريدي",fr:"9. Adresse postale — Code postal",type:"text"},
+      {id:"sex",en:"10. Sex",es:"10. Sexo",ar:"١٠. الجنس",fr:"10. Sexe",type:"select",opts:SEX},
+      {id:"marital",en:"11. Marital Status",es:"11. Estado civil",ar:"١١. الحالة الاجتماعية",fr:"11. État civil",type:"select",opts:MARITAL},
+      {id:"dob",en:"12. Date of Birth (mm/dd/yyyy)",es:"12. Fecha de nacimiento (mm/dd/aaaa)",ar:"١٢. تاريخ الميلاد",fr:"12. Date de naissance (mm/jj/aaaa)",type:"date",req:true},
+      {id:"city_birth",en:"13. City and Country of Birth",es:"13. Ciudad y país de nacimiento",ar:"١٣. مدينة وبلد الميلاد",fr:"13. Ville et pays de naissance",type:"text",req:true},
+      {id:"nationality",en:"14. Present Nationality (Citizenship)",es:"14. Nacionalidad actual (ciudadanía)",ar:"١٤. الجنسية الحالية (المواطنة)",fr:"14. Nationalité actuelle (citoyenneté)",type:"text",req:true},
+      {id:"nat_birth",en:"15. Nationality at Birth",es:"15. Nacionalidad al nacer",ar:"١٥. الجنسية عند الميلاد",fr:"15. Nationalité à la naissance",type:"text"},
+      {id:"race",en:"16. Race, Ethnic, or Tribal Group",es:"16. Raza, grupo étnico o tribal",ar:"١٦. العرق أو المجموعة العرقية أو القبلية",fr:"16. Race, groupe ethnique ou tribal",type:"text"},
+      {id:"religion",en:"17. Religion",es:"17. Religión",ar:"١٧. الدين",fr:"17. Religion",type:"text"},
+      {id:"imm_court",en:"18. Immigration Court proceedings status",es:"18. Estado de procedimientos en tribunal de inmigración",ar:"١٨. حالة إجراءات محكمة الهجرة",fr:"18. Statut des procédures au tribunal d'immigration",type:"select",opts:COURT},
+      {id:"last_left",en:"19a. When did you last leave your country? (mm/dd/yyyy)",es:"19a. ¿Cuándo salió por última vez de su país?",ar:"١٩أ. متى غادرت بلدك آخر مرة؟",fr:"19a. Quand avez-vous quitté votre pays pour la dernière fois?",type:"date"},
+      {id:"i94",en:"19b. Current I-94 Number (if any)",es:"19b. Número I-94 actual (si tiene)",ar:"١٩ب. رقم I-94 الحالي (إن وجد)",fr:"19b. Numéro I-94 actuel (si applicable)",type:"text"},
+      {id:"e1_date",en:"19c. Entry 1 — Date (mm/dd/yyyy)",es:"19c. Entrada 1 — Fecha",ar:"١٩ج. الدخول ١ — التاريخ",fr:"19c. Entrée 1 — Date",type:"date"},
+      {id:"e1_place",en:"19c. Entry 1 — Place",es:"19c. Entrada 1 — Lugar",ar:"١٩ج. الدخول ١ — المكان",fr:"19c. Entrée 1 — Lieu",type:"text"},
+      {id:"e1_status",en:"19c. Entry 1 — Status",es:"19c. Entrada 1 — Estatus",ar:"١٩ج. الدخول ١ — الحالة",fr:"19c. Entrée 1 — Statut",type:"text"},
+      {id:"e1_expires",en:"19c. Entry 1 — Date Status Expires (mm/dd/yyyy)",es:"19c. Entrada 1 — Fecha vencimiento del estatus",ar:"١٩ج. الدخول ١ — تاريخ انتهاء الحالة",fr:"19c. Entrée 1 — Date d'expiration du statut",type:"date"},
+      {id:"e2_date",en:"19c. Entry 2 — Date (mm/dd/yyyy)",es:"19c. Entrada 2 — Fecha",ar:"١٩ج. الدخول ٢ — التاريخ",fr:"19c. Entrée 2 — Date",type:"date"},
+      {id:"e2_place",en:"19c. Entry 2 — Place",es:"19c. Entrada 2 — Lugar",ar:"١٩ج. الدخول ٢ — المكان",fr:"19c. Entrée 2 — Lieu",type:"text"},
+      {id:"e2_status",en:"19c. Entry 2 — Status",es:"19c. Entrada 2 — Estatus",ar:"١٩ج. الدخول ٢ — الحالة",fr:"19c. Entrée 2 — Statut",type:"text"},
+      {id:"e3_date",en:"19c. Entry 3 — Date (mm/dd/yyyy)",es:"19c. Entrada 3 — Fecha",ar:"١٩ج. الدخول ٣ — التاريخ",fr:"19c. Entrée 3 — Date",type:"date"},
+      {id:"e3_place",en:"19c. Entry 3 — Place",es:"19c. Entrada 3 — Lugar",ar:"١٩ج. الدخول ٣ — المكان",fr:"19c. Entrée 3 — Lieu",type:"text"},
+      {id:"e3_status",en:"19c. Entry 3 — Status",es:"19c. Entrada 3 — Estatus",ar:"١٩ج. الدخول ٣ — الحالة",fr:"19c. Entrée 3 — Statut",type:"text"},
+      {id:"passport_ctry",en:"20. Country that issued last passport or travel document",es:"20. País que emitió su último pasaporte o documento de viaje",ar:"٢٠. البلد الذي أصدر جواز سفرك الأخير أو وثيقة السفر",fr:"20. Pays ayant délivré votre dernier passeport ou document de voyage",type:"text"},
+      {id:"passport_num",en:"21. Passport Number / Travel Document Number",es:"21. Número de pasaporte / Número de documento de viaje",ar:"٢١. رقم جواز السفر / رقم وثيقة السفر",fr:"21. Numéro de passeport / Document de voyage",type:"text"},
+      {id:"passport_exp",en:"22. Expiration Date of Passport/Document (mm/dd/yyyy)",es:"22. Fecha de vencimiento del pasaporte/documento",ar:"٢٢. تاريخ انتهاء صلاحية جواز السفر/الوثيقة",fr:"22. Date d'expiration du passeport/document",type:"date"},
+      {id:"native_lang",en:"23. Native language (include dialect, if applicable)",es:"23. Idioma nativo (incluir dialecto si aplica)",ar:"٢٣. اللغة الأم (بما في ذلك اللهجة إن وجدت)",fr:"23. Langue maternelle (inclure le dialecte si applicable)",type:"text"},
+      {id:"fluent_en",en:"24. Are you fluent in English?",es:"24. ¿Habla inglés con fluidez?",ar:"٢٤. هل تتحدث الإنجليزية بطلاقة؟",fr:"24. Parlez-vous couramment l'anglais?",type:"yesno"},
+      {id:"other_langs",en:"25. Other languages you speak fluently",es:"25. Otros idiomas que habla con fluidez",ar:"٢٥. لغات أخرى تتحدثها بطلاقة",fr:"25. Autres langues que vous parlez couramment",type:"text"},
+    ]},
+  { id:"aii_spouse",
+    en:"Part A.II — Your Spouse", es:"Parte A.II — Su Cónyuge", ar:"الجزء أ.٢ — زوجك/زوجتك", fr:"Partie A.II — Votre Conjoint·e",
+    short_en:"Spouse", short_es:"Cónyuge", short_ar:"الزوج/ة", short_fr:"Conjoint·e",
+    fields:[
+      {id:"not_married",en:"I am not married (check Yes to skip spouse section)",es:"No estoy casado/a (marque Sí para omitir la sección del cónyuge)",ar:"لست متزوجاً/ة (اختر نعم لتخطي قسم الزوج/ة)",fr:"Je ne suis pas marié·e (sélectionnez Oui pour ignorer la section conjoint·e)",type:"yesno"},
+      {id:"sp_a_number",en:"Spouse — 1. A-Number (if any)",es:"Cónyuge — 1. Número A (si tiene)",ar:"الزوج/ة — ١. رقم A (إن وجد)",fr:"Conjoint·e — 1. Numéro A (si applicable)",type:"text"},
+      {id:"sp_passport",en:"Spouse — 2. Passport/ID Card Number (if any)",es:"Cónyuge — 2. Número de pasaporte/ID (si tiene)",ar:"الزوج/ة — ٢. رقم جواز السفر/الهوية",fr:"Conjoint·e — 2. Numéro de passeport/ID",type:"text"},
+      {id:"sp_dob",en:"Spouse — 3. Date of Birth (mm/dd/yyyy)",es:"Cónyuge — 3. Fecha de nacimiento",ar:"الزوج/ة — ٣. تاريخ الميلاد",fr:"Conjoint·e — 3. Date de naissance",type:"date"},
+      {id:"sp_ssn",en:"Spouse — 4. U.S. Social Security Number (if any)",es:"Cónyuge — 4. Número de Seguro Social (si tiene)",ar:"الزوج/ة — ٤. رقم الضمان الاجتماعي",fr:"Conjoint·e — 4. Numéro de sécurité sociale US",type:"text"},
+      {id:"sp_last",en:"Spouse — 5. Complete Last Name",es:"Cónyuge — 5. Apellido completo",ar:"الزوج/ة — ٥. اسم العائلة الكامل",fr:"Conjoint·e — 5. Nom de famille complet",type:"text"},
+      {id:"sp_first",en:"Spouse — 6. First Name",es:"Cónyuge — 6. Nombre",ar:"الزوج/ة — ٦. الاسم الأول",fr:"Conjoint·e — 6. Prénom",type:"text"},
+      {id:"sp_middle",en:"Spouse — 7. Middle Name",es:"Cónyuge — 7. Segundo nombre",ar:"الزوج/ة — ٧. الاسم الأوسط",fr:"Conjoint·e — 7. Deuxième prénom",type:"text"},
+      {id:"sp_aliases",en:"Spouse — 8. Other names used (maiden name, aliases)",es:"Cónyuge — 8. Otros nombres usados (alias)",ar:"الزوج/ة — ٨. أسماء أخرى مستخدمة",fr:"Conjoint·e — 8. Autres noms utilisés (alias)",type:"text"},
+      {id:"sp_marriage_date",en:"Spouse — 9. Date of Marriage (mm/dd/yyyy)",es:"Cónyuge — 9. Fecha de matrimonio",ar:"الزوج/ة — ٩. تاريخ الزواج",fr:"Conjoint·e — 9. Date de mariage",type:"date"},
+      {id:"sp_marriage_place",en:"Spouse — 10. Place of Marriage",es:"Cónyuge — 10. Lugar del matrimonio",ar:"الزوج/ة — ١٠. مكان الزواج",fr:"Conjoint·e — 10. Lieu du mariage",type:"text"},
+      {id:"sp_birth_city",en:"Spouse — 11. City and Country of Birth",es:"Cónyuge — 11. Ciudad y país de nacimiento",ar:"الزوج/ة — ١١. مدينة وبلد الميلاد",fr:"Conjoint·e — 11. Ville et pays de naissance",type:"text"},
+      {id:"sp_nationality",en:"Spouse — 12. Nationality (Citizenship)",es:"Cónyuge — 12. Nacionalidad (ciudadanía)",ar:"الزوج/ة — ١٢. الجنسية (المواطنة)",fr:"Conjoint·e — 12. Nationalité (citoyenneté)",type:"text"},
+      {id:"sp_race",en:"Spouse — 13. Race, Ethnic, or Tribal Group",es:"Cónyuge — 13. Raza, grupo étnico o tribal",ar:"الزوج/ة — ١٣. العرق أو المجموعة العرقية",fr:"Conjoint·e — 13. Race, groupe ethnique ou tribal",type:"text"},
+      {id:"sp_sex",en:"Spouse — 14. Sex",es:"Cónyuge — 14. Sexo",ar:"الزوج/ة — ١٤. الجنس",fr:"Conjoint·e — 14. Sexe",type:"select",opts:SEX},
+      {id:"sp_in_us",en:"Spouse — 15. Is your spouse in the U.S.?",es:"Cónyuge — 15. ¿Está su cónyuge en EE.UU.?",ar:"الزوج/ة — ١٥. هل زوجك/زوجتك في أمريكا؟",fr:"Conjoint·e — 15. Votre conjoint·e est-il/elle aux États-Unis?",type:"yesno"},
+      {id:"sp_entry_place",en:"Spouse — 16. Place of last entry into the U.S.",es:"Cónyuge — 16. Lugar de última entrada a EE.UU.",ar:"الزوج/ة — ١٦. مكان آخر دخول لأمريكا",fr:"Conjoint·e — 16. Lieu de dernière entrée aux États-Unis",type:"text"},
+      {id:"sp_entry_date",en:"Spouse — 17. Date of last entry into the U.S. (mm/dd/yyyy)",es:"Cónyuge — 17. Fecha de última entrada a EE.UU.",ar:"الزوج/ة — ١٧. تاريخ آخر دخول لأمريكا",fr:"Conjoint·e — 17. Date de dernière entrée aux États-Unis",type:"date"},
+      {id:"sp_i94",en:"Spouse — 18. I-94 Number (if any)",es:"Cónyuge — 18. Número I-94 (si tiene)",ar:"الزوج/ة — ١٨. رقم I-94 (إن وجد)",fr:"Conjoint·e — 18. Numéro I-94 (si applicable)",type:"text"},
+      {id:"sp_status_admit",en:"Spouse — 19. Status when last admitted (Visa type, if any)",es:"Cónyuge — 19. Estatus al ser admitido (tipo de visa)",ar:"الزوج/ة — ١٩. الحالة عند آخر دخول (نوع التأشيرة)",fr:"Conjoint·e — 19. Statut lors de la dernière admission (type de visa)",type:"text"},
+      {id:"sp_cur_status",en:"Spouse — 20. Current immigration status",es:"Cónyuge — 20. Estatus migratorio actual",ar:"الزوج/ة — ٢٠. الحالة المهاجرية الحالية",fr:"Conjoint·e — 20. Statut d'immigration actuel",type:"text"},
+      {id:"sp_status_exp",en:"Spouse — 21. Expiration date of authorized stay (mm/dd/yyyy)",es:"Cónyuge — 21. Fecha de vencimiento de estadía autorizada",ar:"الزوج/ة — ٢١. تاريخ انتهاء الإقامة المرخصة",fr:"Conjoint·e — 21. Date d'expiration du séjour autorisé",type:"date"},
+      {id:"sp_court",en:"Spouse — 22. Is your spouse in Immigration Court proceedings?",es:"Cónyuge — 22. ¿Está su cónyuge en procedimientos de tribunal?",ar:"الزوج/ة — ٢٢. هل زوجك/زوجتك في إجراءات محكمة الهجرة؟",fr:"Conjoint·e — 22. Votre conjoint·e est-il/elle en procédure au tribunal?",type:"yesno"},
+      {id:"sp_prev_arrival",en:"Spouse — 23. If previously in U.S., date of previous arrival (mm/dd/yyyy)",es:"Cónyuge — 23. Si estuvo antes en EE.UU., fecha de llegada anterior",ar:"الزوج/ة — ٢٣. إن كان في أمريكا من قبل، تاريخ الوصول السابق",fr:"Conjoint·e — 23. Si précédemment aux États-Unis, date d'arrivée précédente",type:"date"},
+      {id:"sp_include",en:"Spouse — 24. Is your spouse to be included in this application?",es:"Cónyuge — 24. ¿Se incluirá al cónyuge en esta solicitud?",ar:"الزوج/ة — ٢٤. هل سيُضم الزوج/ة في هذا الطلب؟",fr:"Conjoint·e — 24. Le/la conjoint·e sera-t-il/elle inclus·e dans cette demande?",type:"yesno"},
+    ]},
+  { id:"aii_children",
+    en:"Part A.II — Your Children", es:"Parte A.II — Sus Hijos/as", ar:"الجزء أ.٢ — أطفالك", fr:"Partie A.II — Vos Enfants",
+    short_en:"Children", short_es:"Hijos/as", short_ar:"الأطفال", short_fr:"Enfants",
+    fields:[
+      {id:"no_children",en:"I do not have any children (check Yes if applicable)",es:"No tengo hijos/as (marque Sí si aplica)",ar:"ليس لدي أطفال (اختر نعم إن انطبق)",fr:"Je n'ai pas d'enfants (sélectionnez Oui si applicable)",type:"yesno"},
+      {id:"num_children",en:"Total number of children",es:"Número total de hijos/as",ar:"العدد الإجمالي للأطفال",fr:"Nombre total d'enfants",type:"text"},
+      ...childFields(1),...childFields(2),...childFields(3),...childFields(4),
+    ]},
+  { id:"aiii",
+    en:"Part A.III — Information About Your Background", es:"Parte A.III — Sus Antecedentes", ar:"الجزء أ.٣ — خلفيتك", fr:"Partie A.III — Votre Parcours",
+    short_en:"Background", short_es:"Antecedentes", short_ar:"الخلفية", short_fr:"Parcours",
+    fields:[
+      {id:"h1_street",en:"1. Last home country address — Row 1 — Number and Street (if available)",es:"1. Última dirección en país de origen — Fila 1 — Calle y número",ar:"١. آخر عنوان في البلد الأصلي — صف ١ — الشارع والرقم",fr:"1. Dernière adresse au pays — Rangée 1 — Numéro et rue",type:"text"},
+      {id:"h1_city",en:"1. Last home country address — Row 1 — City/Town",es:"1. Última dirección — Fila 1 — Ciudad/Pueblo",ar:"١. آخر عنوان — صف ١ — المدينة/البلدة",fr:"1. Dernière adresse — Rangée 1 — Ville/Commune",type:"text"},
+      {id:"h1_dept",en:"1. Last home country address — Row 1 — Department, Province, or State",es:"1. Última dirección — Fila 1 — Departamento, Provincia o Estado",ar:"١. آخر عنوان — صف ١ — المحافظة أو الإقليم أو الولاية",fr:"1. Dernière adresse — Rangée 1 — Département, Province ou État",type:"text"},
+      {id:"h1_country",en:"1. Last home country address — Row 1 — Country",es:"1. Última dirección — Fila 1 — País",ar:"١. آخر عنوان — صف ١ — البلد",fr:"1. Dernière adresse — Rangée 1 — Pays",type:"text"},
+      {id:"h1_from",en:"1. Last home country address — Row 1 — From (Mo/Yr)",es:"1. Última dirección — Fila 1 — Desde (Mes/Año)",ar:"١. آخر عنوان — صف ١ — من (شهر/سنة)",fr:"1. Dernière adresse — Rangée 1 — Depuis (Mois/An)",type:"text"},
+      {id:"h1_to",en:"1. Last home country address — Row 1 — To (Mo/Yr)",es:"1. Última dirección — Fila 1 — Hasta (Mes/Año)",ar:"١. آخر عنوان — صف ١ — حتى (شهر/سنة)",fr:"1. Dernière adresse — Rangée 1 — Jusqu'à (Mois/An)",type:"text"},
+      {id:"h2_street",en:"1. Last home country address — Row 2 — Number and Street",es:"1. Última dirección — Fila 2 — Calle y número",ar:"١. آخر عنوان — صف ٢ — الشارع والرقم",fr:"1. Dernière adresse — Rangée 2 — Numéro et rue",type:"text"},
+      {id:"h2_city",en:"1. Last home country address — Row 2 — City/Town",es:"1. Última dirección — Fila 2 — Ciudad/Pueblo",ar:"١. آخر عنوان — صف ٢ — المدينة/البلدة",fr:"1. Dernière adresse — Rangée 2 — Ville/Commune",type:"text"},
+      {id:"h2_dept",en:"1. Last home country address — Row 2 — Department, Province, or State",es:"1. Última dirección — Fila 2 — Departamento/Provincia/Estado",ar:"١. آخر عنوان — صف ٢ — المحافظة/الإقليم",fr:"1. Dernière adresse — Rangée 2 — Département/Province/État",type:"text"},
+      {id:"h2_country",en:"1. Last home country address — Row 2 — Country",es:"1. Última dirección — Fila 2 — País",ar:"١. آخر عنوان — صف ٢ — البلد",fr:"1. Dernière adresse — Rangée 2 — Pays",type:"text"},
+      {id:"h2_from",en:"1. Last home country address — Row 2 — From (Mo/Yr)",es:"1. Última dirección — Fila 2 — Desde",ar:"١. آخر عنوان — صف ٢ — من",fr:"1. Dernière adresse — Rangée 2 — Depuis",type:"text"},
+      {id:"h2_to",en:"1. Last home country address — Row 2 — To (Mo/Yr)",es:"1. Última dirección — Fila 2 — Hasta",ar:"١. آخر عنوان — صف ٢ — حتى",fr:"1. Dernière adresse — Rangée 2 — Jusqu'à",type:"text"},
+      ...resRow(1),...resRow(2),...resRow(3),...resRow(4),...resRow(5),
+      ...eduRow(1),...eduRow(2),...eduRow(3),...eduRow(4),
+      ...empRow(1),...empRow(2),...empRow(3),
+      {id:"mother_name",en:"5. Mother — Full Name",es:"5. Madre — Nombre completo",ar:"٥. الأم — الاسم الكامل",fr:"5. Mère — Nom complet",type:"text"},
+      {id:"mother_birth",en:"5. Mother — City/Town and Country of Birth",es:"5. Madre — Ciudad y país de nacimiento",ar:"٥. الأم — مدينة وبلد الميلاد",fr:"5. Mère — Ville et pays de naissance",type:"text"},
+      {id:"mother_location",en:"5. Mother — Current Location",es:"5. Madre — Ubicación actual",ar:"٥. الأم — الموقع الحالي",fr:"5. Mère — Lieu actuel",type:"text"},
+      {id:"mother_deceased",en:"5. Mother — Deceased?",es:"5. Madre — ¿Fallecida?",ar:"٥. الأم — متوفاة؟",fr:"5. Mère — Décédée?",type:"yesno"},
+      {id:"father_name",en:"5. Father — Full Name",es:"5. Padre — Nombre completo",ar:"٥. الأب — الاسم الكامل",fr:"5. Père — Nom complet",type:"text"},
+      {id:"father_birth",en:"5. Father — City/Town and Country of Birth",es:"5. Padre — Ciudad y país de nacimiento",ar:"٥. الأب — مدينة وبلد الميلاد",fr:"5. Père — Ville et pays de naissance",type:"text"},
+      {id:"father_location",en:"5. Father — Current Location",es:"5. Padre — Ubicación actual",ar:"٥. الأب — الموقع الحالي",fr:"5. Père — Lieu actuel",type:"text"},
+      {id:"father_deceased",en:"5. Father — Deceased?",es:"5. Padre — ¿Fallecido?",ar:"٥. الأب — متوفى؟",fr:"5. Père — Décédé?",type:"yesno"},
+      ...sibFields(1),...sibFields(2),...sibFields(3),...sibFields(4),
+    ]},
+  { id:"b",
+    en:"Part B — Information About Your Application", es:"Parte B — Información Sobre Su Solicitud", ar:"الجزء ب — معلومات عن طلبك", fr:"Partie B — Informations Sur Votre Demande",
+    short_en:"Claim (B)", short_es:"Solicitud (B)", short_ar:"الطلب (ب)", short_fr:"Demande (B)",
+    fields:[
+      {id:"basis_race",en:"1. Basis for claim — Race",es:"1. Motivo — Raza",ar:"١. أساس الطلب — العرق",fr:"1. Motif — Race",type:"yesno"},
+      {id:"basis_religion",en:"1. Basis for claim — Religion",es:"1. Motivo — Religión",ar:"١. الأساس — الدين",fr:"1. Motif — Religion",type:"yesno"},
+      {id:"basis_nationality",en:"1. Basis for claim — Nationality",es:"1. Motivo — Nacionalidad",ar:"١. الأساس — الجنسية",fr:"1. Motif — Nationalité",type:"yesno"},
+      {id:"basis_political",en:"1. Basis for claim — Political opinion",es:"1. Motivo — Opinión política",ar:"١. الأساس — الرأي السياسي",fr:"1. Motif — Opinion politique",type:"yesno"},
+      {id:"basis_social",en:"1. Basis for claim — Membership in a particular social group",es:"1. Motivo — Pertenencia a grupo social particular",ar:"١. الأساس — الانتماء لمجموعة اجتماعية معينة",fr:"1. Motif — Appartenance à un groupe social particulier",type:"yesno"},
+      {id:"basis_torture",en:"1. Basis for claim — Torture Convention",es:"1. Motivo — Convención contra la Tortura",ar:"١. الأساس — اتفاقية مناهضة التعذيب",fr:"1. Motif — Convention contre la Torture",type:"yesno"},
+      {id:"harm_past",en:"A. Have you, your family, or close friends or colleagues ever experienced harm or mistreatment or threats in the past by anyone?",es:"A. ¿Ha sufrido usted, su familia o amigos/colegas cercanos daño, maltrato o amenazas en el pasado por parte de alguien?",ar:"أ. هل عانيت أنت أو عائلتك أو أصدقاؤك/زملاؤك المقربون من أذى أو إساءة أو تهديدات في الماضي من أي شخص؟",fr:"A. Vous, votre famille ou vos amis/collègues proches avez-vous déjà subi des préjudices, mauvais traitements ou menaces dans le passé?",type:"yesno"},
+      {id:"harm_past_detail",en:"A. If Yes — explain in detail: (1) What happened; (2) When the harm or mistreatment or threats occurred; (3) Who caused the harm or mistreatment or threats; and (4) Why you believe the harm or mistreatment or threats occurred.",es:"A. Si Sí — explique en detalle: (1) Qué pasó; (2) Cuándo ocurrió el daño, maltrato o amenazas; (3) Quién causó el daño, maltrato o amenazas; y (4) Por qué cree que ocurrió.",ar:"أ. إن نعم — اشرح بالتفصيل: (١) ما الذي حدث؛ (٢) متى حدث الأذى أو الإساءة أو التهديدات؛ (٣) من تسبب في ذلك؛ و(٤) لماذا تعتقد أن ذلك حدث.",fr:"A. Si Oui — expliquez en détail: (1) Ce qui s'est passé; (2) Quand le préjudice a eu lieu; (3) Qui en est responsable; et (4) Pourquoi vous pensez que cela s'est produit.",type:"textarea",tall:true},
+      {id:"fear_future",en:"B. Do you fear harm or mistreatment if you return to your home country?",es:"B. ¿Teme sufrir daño o maltrato si regresa a su país de origen?",ar:"ب. هل تخشى تعرضك للأذى أو الإساءة إن عدت إلى بلدك؟",fr:"B. Craignez-vous des préjudices ou mauvais traitements si vous retournez dans votre pays d'origine?",type:"yesno"},
+      {id:"fear_future_detail",en:"B. If Yes — explain in detail: (1) What harm or mistreatment you fear; (2) Who you believe would harm or mistreat you; and (3) Why you believe you would or could be harmed or mistreated.",es:"B. Si Sí — explique en detalle: (1) Qué daño o maltrato teme; (2) Quién cree que le haría daño; y (3) Por qué cree que podría ser dañado o maltratado.",ar:"ب. إن نعم — اشرح بالتفصيل: (١) ما الأذى الذي تخشاه؛ (٢) من تعتقد أنه سيؤذيك؛ و(٣) لماذا تعتقد أنك ستتعرض للأذى.",fr:"B. Si Oui — expliquez en détail: (1) Quel préjudice vous craignez; (2) Qui vous ferait du mal; et (3) Pourquoi vous pensez que vous pourriez être lésé.",type:"textarea",tall:true},
+      {id:"arrested_outside",en:"2. Have you or your family members ever been accused, charged, arrested, detained, interrogated, convicted and sentenced, or imprisoned in any country other than the United States (including for an immigration law violation)?",es:"2. ¿Ha sido usted o su familia acusado, arrestado, detenido, interrogado, condenado o encarcelado en algún país fuera de EE.UU. (incluyendo violaciones de inmigración)?",ar:"٢. هل اتُّهمت أنت أو أفراد عائلتك أو اعتُقلتم أو احتُجزتم أو استُجوبتم أو أُدينتم أو سُجنتم في أي بلد غير الولايات المتحدة (بما في ذلك انتهاكات قانون الهجرة)؟",fr:"2. Vous ou des membres de votre famille avez-vous jamais été accusé, arrêté, détenu, interrogé, condamné ou emprisonné dans un pays autre que les États-Unis (y compris pour violations d'immigration)?",type:"yesno"},
+      {id:"arrested_outside_detail",en:"2. If Yes — explain the circumstances and reasons for the action:",es:"2. Si Sí — explique las circunstancias y razones de la acción:",ar:"٢. إن نعم — اشرح الظروف وأسباب الإجراء:",fr:"2. Si Oui — expliquez les circonstances et les raisons:",type:"textarea",tall:true},
+      {id:"orgs_belonged",en:"3A. Have you or your family members ever belonged to or been associated with any organizations or groups in your home country (such as a political party, student group, labor union, religious organization, military or paramilitary group, civil patrol, guerrilla organization, ethnic group, human rights group, or the press or media)?",es:"3A. ¿Ha pertenecido usted o su familia a alguna organización o grupo en su país de origen (como partido político, grupo estudiantil, sindicato, organización religiosa, grupo militar o paramilitar, patrulla civil, guerrilla, grupo étnico, derechos humanos o prensa/medios)?",ar:"٣أ. هل انتمى أنت أو أفراد عائلتك إلى أي منظمة أو مجموعة في بلدك الأصلي (مثل حزب سياسي، مجموعة طلابية، نقابة، منظمة دينية، مجموعة عسكرية أو شبه عسكرية، دورية مدنية، منظمة حقوق إنسان، صحافة/إعلام)؟",fr:"3A. Vous ou des membres de votre famille avez-vous jamais appartenu à des organisations ou groupes dans votre pays (comme un parti politique, syndicat, organisation religieuse, groupe militaire, organisation de droits de l'homme, presse/médias)?",type:"yesno"},
+      {id:"orgs_belonged_detail",en:"3A. If Yes — describe for each person: the level of participation, any leadership or other positions held, and the length of time involved:",es:"3A. Si Sí — describa para cada persona: el nivel de participación, cargos de liderazgo, y el tiempo involucrado:",ar:"٣أ. إن نعم — صف لكل شخص: مستوى المشاركة والمناصب القيادية ومدة التورط:",fr:"3A. Si Oui — décrivez pour chaque personne: le niveau de participation, les postes de direction, et la durée d'implication:",type:"textarea",tall:true},
+      {id:"orgs_continue",en:"3B. Do you or your family members continue to participate in any way in these organizations or groups?",es:"3B. ¿Continúa usted o su familia participando de alguna manera en estas organizaciones o grupos?",ar:"٣ب. هل تواصل أنت أو أفراد عائلتك المشاركة بأي شكل في هذه المنظمات أو المجموعات؟",fr:"3B. Vous ou des membres de votre famille continuez-vous à participer d'une quelconque manière à ces organisations ou groupes?",type:"yesno"},
+      {id:"orgs_continue_detail",en:"3B. If Yes — describe current level of participation and any positions currently held:",es:"3B. Si Sí — describa el nivel actual de participación y cargos actuales:",ar:"٣ب. إن نعم — صف مستوى المشاركة الحالي والمناصب الحالية:",fr:"3B. Si Oui — décrivez le niveau actuel de participation et les postes occupés:",type:"textarea"},
+      {id:"torture_fear",en:"4. Are you afraid of being subjected to torture in your home country or any other country to which you may be returned?",es:"4. ¿Teme ser sometido a tortura en su país de origen o en cualquier otro país al que pueda ser devuelto?",ar:"٤. هل تخشى تعرضك للتعذيب في بلدك الأصلي أو أي بلد آخر قد تُرحل إليه؟",fr:"4. Craignez-vous d'être soumis à la torture dans votre pays d'origine ou dans tout autre pays vers lequel vous pourriez être renvoyé?",type:"yesno"},
+      {id:"torture_fear_detail",en:"4. If Yes — explain why you are afraid and describe the nature of torture you fear, by whom, and why it would be inflicted:",es:"4. Si Sí — explique por qué teme la tortura, su naturaleza, quién la infligiría y por qué:",ar:"٤. إن نعم — اشرح لماذا تخشى التعذيب وطبيعته ومن سيوقعه ولماذا:",fr:"4. Si Oui — expliquez pourquoi vous craignez la torture, sa nature, par qui, et pourquoi elle serait infligée:",type:"textarea"},
+    ]},
+  { id:"c",
+    en:"Part C — Additional Information About Your Application", es:"Parte C — Información Adicional Sobre Su Solicitud", ar:"الجزء ج — معلومات إضافية عن طلبك", fr:"Partie C — Informations Supplémentaires Sur Votre Demande",
+    short_en:"Additional (C)", short_es:"Adicional (C)", short_ar:"إضافي (ج)", short_fr:"Supplémentaire (C)",
+    fields:[
+      {id:"prior_asylum",en:"1. Have you, your spouse, your child(ren), your parents or your siblings ever applied to the U.S. Government for refugee status, asylum, or withholding of removal?",es:"1. ¿Ha solicitado usted, su cónyuge, hijos, padres o hermanos al Gobierno de EE.UU. el estatus de refugiado, asilo o suspensión de deportación?",ar:"١. هل تقدمت أنت أو زوجك/زوجتك أو أطفالك أو والداك أو أشقاؤك بطلب للحكومة الأمريكية للحصول على وضع لاجئ أو لجوء أو تعليق الترحيل؟",fr:"1. Vous, votre conjoint·e, vos enfants, parents ou frères/sœurs avez-vous jamais demandé au gouvernement américain le statut de réfugié, l'asile ou la suspension d'expulsion?",type:"yesno"},
+      {id:"prior_asylum_detail",en:"1. If Yes — explain the decision and what happened to any status received. Indicate whether you were included in a parent or spouse's application. If denied by an immigration judge or the Board of Immigration Appeals, describe any change(s) in conditions in your country or your own personal circumstances since the date of the denial:",es:"1. Si Sí — explique la decisión y qué pasó con el estatus recibido. Indique si fue incluido en la solicitud de un padre o cónyuge. Si fue negado por un juez de inmigración o la Junta de Apelaciones, describa cambios en las condiciones de su país o sus circunstancias personales desde la denegación:",ar:"١. إن نعم — اشرح القرار وما حدث لأي وضع قانوني مُنح. أشر إن كنت مشمولاً في طلب والد أو زوج. إن رُفض الطلب، صف أي تغييرات في ظروف بلدك أو ظروفك الشخصية:",fr:"1. Si Oui — expliquez la décision et ce qui est arrivé au statut reçu. Indiquez si vous étiez inclus dans la demande d'un parent ou conjoint. Si refusé, décrivez tout changement de conditions:",type:"textarea",tall:true},
+      {id:"transit",en:"2A. After leaving the country from which you are claiming asylum, did you or your spouse or child(ren) who are now in the United States travel through or reside in any other country before entering the United States?",es:"2A. Después de salir del país del cual solicita asilo, ¿viajó usted, su cónyuge o hijos que están en EE.UU. a través de o residió en algún otro país antes de entrar a EE.UU.?",ar:"٢أ. بعد مغادرة البلد الذي تطلب منه اللجوء، هل سافرت أنت أو زوجك/زوجتك أو أطفالك الذين في أمريكا عبر أو أقمتم في أي بلد آخر قبل دخول الولايات المتحدة؟",fr:"2A. Après avoir quitté le pays pour lequel vous demandez l'asile, vous, votre conjoint·e ou vos enfants qui sont maintenant aux États-Unis avez-vous voyagé à travers ou résidé dans un autre pays avant d'entrer aux États-Unis?",type:"yesno"},
+      {id:"other_status",en:"2B. Have you, your spouse, your child(ren), or other family members (such as your parents or siblings) ever applied for or received any lawful status in any country other than the one from which you are now claiming asylum?",es:"2B. ¿Ha solicitado usted, su cónyuge, hijos u otros familiares algún estatus legal en algún otro país distinto al del que solicita asilo?",ar:"٢ب. هل تقدم أنت أو زوجك/زوجتك أو أطفالك أو أفراد عائلتك الآخرون للحصول على وضع قانوني في أي بلد آخر غير البلد الذي تطلب منه اللجوء؟",fr:"2B. Vous, votre conjoint·e, vos enfants ou autres membres de votre famille avez-vous jamais demandé ou obtenu un statut légal dans un pays autre que celui pour lequel vous demandez l'asile?",type:"yesno"},
+      {id:"transit_detail",en:"2A/2B. If Yes to either — for each person provide: the name of each country and the length of stay, the person's status while there, the reasons for leaving, whether the person is entitled to return for lawful residence purposes, and whether the person applied for refugee status or asylum while there, and if not, why not:",es:"2A/2B. Si Sí a alguna — para cada persona: nombre del país y duración de la estadía, estatus allí, razones para irse, si puede regresar para residencia legal, y si solicitó asilo allí, y si no, por qué no:",ar:"٢أ/٢ب. إن نعم لأي منهما — لكل شخص: اسم البلد ومدة الإقامة، الوضع القانوني هناك، أسباب المغادرة، ما إذا كان يحق له العودة للإقامة القانونية، وما إذا تقدم بطلب لجوء هناك:",fr:"2A/2B. Si Oui pour l'une ou l'autre — pour chaque personne: le nom de chaque pays et la durée du séjour, le statut là-bas, les raisons du départ, si la personne a le droit de retourner pour résidence légale, et si elle a demandé l'asile là-bas:",type:"textarea",tall:true},
+      {id:"caused_harm",en:"3. Have you, your spouse or your child(ren) ever ordered, incited, assisted or otherwise participated in causing harm or suffering to any person because of his or her race, religion, nationality, membership in a particular social group or belief in a particular political opinion?",es:"3. ¿Ha ordenado, incitado, asistido o participado usted, su cónyuge o hijos en causar daño o sufrimiento a alguna persona por su raza, religión, nacionalidad, grupo social u opinión política?",ar:"٣. هل أصدرت أنت أو زوجك/زوجتك أو أطفالك أوامر بإلحاق الأذى بأي شخص أو حرّضتم على ذلك أو شاركتم فيه بسبب العرق أو الدين أو الجنسية أو المجموعة الاجتماعية أو الرأي السياسي؟",fr:"3. Vous, votre conjoint·e ou vos enfants avez-vous jamais ordonné, incité, aidé ou participé à causer des préjudices à une personne en raison de sa race, religion, nationalité, appartenance à un groupe social ou opinion politique?",type:"yesno"},
+      {id:"caused_harm_detail",en:"3. If Yes — describe in detail each such incident and your own, your spouse's, or your child(ren)'s involvement:",es:"3. Si Sí — describa en detalle cada incidente y la participación de usted, su cónyuge o hijos:",ar:"٣. إن نعم — صف بالتفصيل كل حادثة ومشاركة أنت/زوجك/أطفالك فيها:",fr:"3. Si Oui — décrivez en détail chaque incident et l'implication de vous, votre conjoint·e ou vos enfants:",type:"textarea"},
+      {id:"returned",en:"4. After you left the country where you were harmed or fear harm, did you return to that country?",es:"4. Después de salir del país donde fue dañado o teme ser dañado, ¿regresó a ese país?",ar:"٤. بعد مغادرة البلد حيث تعرضت للأذى أو تخشاه، هل عدت إلى ذلك البلد؟",fr:"4. Après avoir quitté le pays où vous avez été lésé ou craignez l'être, y êtes-vous retourné?",type:"yesno"},
+      {id:"returned_detail",en:"4. If Yes — describe in detail the circumstances of your visit(s): the date(s) of the trip(s), the purpose(s) of the trip(s), and the length of time you remained in that country for the visit(s):",es:"4. Si Sí — describa las circunstancias de su(s) visita(s): fecha(s), propósito(s), y duración:",ar:"٤. إن نعم — صف بالتفصيل ظروف زيارتك: التاريخ والغرض ومدة بقائك في ذلك البلد:",fr:"4. Si Oui — décrivez en détail les circonstances de votre/vos visite(s): les dates, les objectifs, et la durée:",type:"textarea"},
+      {id:"late_filing",en:"5. Are you filing this application more than 1 year after your last arrival in the United States?",es:"5. ¿Está presentando esta solicitud más de 1 año después de su última llegada a EE.UU.?",ar:"٥. هل تتقدم بهذا الطلب بعد أكثر من سنة من آخر وصول إلى الولايات المتحدة؟",fr:"5. Déposez-vous cette demande plus d'un an après votre dernière entrée aux États-Unis?",type:"yesno"},
+      {id:"late_filing_detail",en:"5. If Yes — explain why you did not file within the first year after you arrived. You must be prepared to explain at your interview or hearing why you did not file your asylum application within the first year after you arrived:",es:"5. Si Sí — explique por qué no presentó la solicitud dentro del primer año de llegada. Debe estar preparado para explicarlo en su entrevista o audiencia:",ar:"٥. إن نعم — اشرح لماذا لم تتقدم خلال السنة الأولى من وصولك. يجب أن تكون مستعداً للتوضيح في مقابلتك أو جلسة الاستماع:",fr:"5. Si Oui — expliquez pourquoi vous n'avez pas déposé dans la première année. Vous devrez être prêt à l'expliquer lors de votre entretien ou audience:",type:"textarea"},
+      {id:"us_crimes",en:"6. Have you or any member of your family included in the application ever committed any crime and/or been arrested, charged, convicted, or sentenced for any crimes in the United States (including for an immigration law violation)?",es:"6. ¿Ha cometido usted o algún familiar incluido en esta solicitud algún delito o ha sido arrestado, acusado, condenado o sentenciado en EE.UU. (incluyendo violaciones de inmigración)?",ar:"٦. هل ارتكبت أنت أو أي فرد من عائلتك المدرج في هذا الطلب أي جريمة أو اعتُقل أو وُجِّهت إليه اتهامات أو أُدين أو صدر بحقه حكم في الولايات المتحدة؟",fr:"6. Vous ou tout membre de la famille inclus dans cette demande avez-vous jamais commis un crime et/ou été arrêté, inculpé, condamné aux États-Unis (y compris violations d'immigration)?",type:"yesno"},
+      {id:"us_crimes_detail",en:"6. If Yes — for each instance specify: what occurred and the circumstances, dates, length of sentence received, location, the duration of the detention or imprisonment, reason(s) for the detention or conviction, any formal charges that were lodged against you or your relatives included in your application, and the reason(s) for release. Attach documents referring to these incidents if available:",es:"6. Si Sí — por cada instancia especifique: qué ocurrió y las circunstancias, fechas, duración de sentencia, lugar, duración de detención, razón de condena, cargos formales, y razón de liberación. Adjunte documentos si están disponibles:",ar:"٦. إن نعم — حدد لكل حادثة: ما الذي حدث والظروف، التواريخ، مدة الحكم، المكان، مدة الاحتجاز، سبب الإدانة، الاتهامات الرسمية، وسبب الإفراج. أرفق الوثائق إن توفرت:",fr:"6. Si Oui — pour chaque instance précisez: ce qui s'est passé et les circonstances, dates, durée de peine, lieu, durée de détention, raison de condamnation, charges formelles, et raison de libération. Joignez les documents si disponibles:",type:"textarea",tall:true},
+    ]},
+];
+
+// ─── Translation ───────────────────────────────────────────────────────────
+const cache: Record<string,string> = {};
+
+async function googleTranslate(text: string, targetLang: string): Promise<string> {
+  if (!text?.trim() || targetLang==="en") return text;
+  const k = `${targetLang}::${text}`;
+  if (cache[k]) return cache[k];
+  const key = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY;
+  if (!key) return text;
   try {
-    const res = await fetch(
-      `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q: text, source: sourceLang, target: "en", format: "text" }),
-      }
-    );
-    const data = await res.json();
-    const result: string = data?.data?.translations?.[0]?.translatedText ?? text;
-    cache[cacheKey] = result;
-    return result;
+    const r = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${key}`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({q:text, source:"en", target:targetLang, format:"text"})
+    });
+    const d = await r.json();
+    const result = d?.data?.translations?.[0]?.translatedText ?? text;
+    cache[k] = result; return result;
   } catch { return text; }
 }
 
-function useDebounce(value: string, delay: number): string {
-  const [d, setD] = useState(value);
-  useEffect(() => { const t = setTimeout(() => setD(value), delay); return () => clearTimeout(t); }, [value, delay]);
-  return d;
+async function toEnglish(text: string, srcLang: string): Promise<string> {
+  if (!text?.trim() || srcLang==="en") return text;
+  const k = `en::${text}`;
+  if (cache[k]) return cache[k];
+  const key = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY;
+  if (!key) return text;
+  try {
+    const r = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${key}`,{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({q:text, source:srcLang, target:"en", format:"text"})
+    });
+    const d = await r.json();
+    const result = d?.data?.translations?.[0]?.translatedText ?? text;
+    cache[k] = result; return result;
+  } catch { return text; }
 }
 
-// ─── Field Row ─────────────────────────────────────────────────────
-interface FieldRowProps {
-  field: Field; lang: Language;
-  value: string; onValueChange: (v: string) => void;
-  answeredIn: string; onAnsweredInChange: (lc: string) => void;
+function useDebounce(v: string, d: number) {
+  const [val, setVal] = useState(v);
+  useEffect(() => { const t = setTimeout(()=>setVal(v),d); return ()=>clearTimeout(t); }, [v,d]);
+  return val;
 }
 
-function FieldRow({ field, lang, value, onValueChange, answeredIn, onAnsweredInChange }: FieldRowProps) {
-  const [enTranslation, setEnTranslation] = useState("");
-  const [translating, setTranslating] = useState(false);
-  const debouncedValue = useDebounce(value, 800);
-  const isDate = field.type === "date";
-  const isSelect = field.type === "select";
-  const answeredInNative = answeredIn === lang.code && lang.code !== "en";
-  const needsEnTranslation = answeredInNative && !isDate && !isSelect && !!value?.trim();
+// ─── Field component ───────────────────────────────────────────────────────
+function FieldRow({field,lang,value,onValue,answeredIn,onAnsweredIn}: {
+  field:Field; lang:Language; value:string;
+  onValue:(v:string)=>void; answeredIn:string; onAnsweredIn:(lc:string)=>void;
+}) {
+  const [enTrans, setEnTrans] = useState("");
+  const [loading, setLoading] = useState(false);
+  const dv = useDebounce(value, 800);
+  const isDate=field.type==="date", isSelect=field.type==="select", isYN=field.type==="yesno";
+  const nativeLang=lang.code!=="en";
+  const answeredNative=answeredIn===lang.code && nativeLang;
+  const needsEnTrans=answeredNative && !isDate && !isSelect && !isYN && !!value?.trim();
 
   useEffect(() => {
-    if (!debouncedValue?.trim() || !answeredInNative || isDate || isSelect) { setEnTranslation(""); return; }
-    setTranslating(true);
-    translateToEnglish(debouncedValue, lang.code).then(t => { setEnTranslation(t); setTranslating(false); });
-  }, [debouncedValue, answeredInNative, isDate, isSelect, lang.code]);
+    if (!dv?.trim() || !answeredNative || isDate || isSelect || isYN) { setEnTrans(""); return; }
+    setLoading(true);
+    toEnglish(dv, lang.code).then(t => { setEnTrans(t); setLoading(false); });
+  }, [dv, answeredNative, isDate, isSelect, isYN, lang.code]);
 
-  const inputBox: React.CSSProperties = {
-    width: "100%", padding: "10px 12px",
-    border: `1.5px solid ${C.border}`, borderRadius: 8,
-    background: C.white, fontFamily: "inherit",
-    fontSize: 14, color: C.text, outline: "none",
-    boxSizing: "border-box" as const,
-    direction: lang.rtl && answeredInNative ? "rtl" : "ltr",
+  const lc = lang.code as "en"|"es"|"ar"|"fr";
+  const label = field[lc] || field.en;
+  const dir = lang.rtl ? "rtl" : "ltr";
+  const inputS: React.CSSProperties = {
+    width:"100%", padding:"10px 12px", border:`1.5px solid ${C.border}`,
+    borderRadius:8, background:C.white, fontFamily:"inherit",
+    fontSize:14, color:C.text, outline:"none", boxSizing:"border-box" as const,
+    direction: lang.rtl && answeredNative ? "rtl" : "ltr",
   };
 
   return (
-    <div style={{ background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 10, padding: 14, marginBottom: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" as const, direction: lang.rtl ? "rtl" : "ltr" }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{s(field.labelKey, lang.code)}</span>
-        {field.required && <span style={{ fontSize: 13, color: C.danger, fontWeight: 700 }}>*</span>}
-        {needsEnTranslation && (
-          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 20, background: C.amberLight, color: C.amber, fontWeight: 600, border: `1px solid ${C.amberBorder}` }}>
-            {s("needs_en_trans", lang.code)}
+    <div style={{background:C.white, border:`1.5px solid ${C.border}`, borderRadius:10, padding:14, marginBottom:10}}>
+      <div style={{display:"flex", alignItems:"center", gap:8, marginBottom:8, flexWrap:"wrap" as const, direction:dir}}>
+        <span style={{fontSize:13, fontWeight:700, color:C.text}}>{label}</span>
+        {field.req && <span style={{color:C.red, fontWeight:700}}>*</span>}
+        {needsEnTrans && (
+          <span style={{fontSize:11, padding:"2px 8px", borderRadius:20, background:C.amberL, color:C.amber, fontWeight:600, border:`1px solid ${C.amberB}`}}>
+            {UI.needs_trans[lang.code]}
           </span>
         )}
       </div>
-
-      {field.hintKey && (
-        <div style={{ fontSize: 12, color: C.textMid, marginBottom: 10, lineHeight: 1.5, fontStyle: "italic", padding: "6px 10px", background: C.gray, borderRadius: 6, direction: lang.rtl ? "rtl" : "ltr" }}>
-          {s(field.hintKey, lang.code)}
-        </div>
-      )}
-
       {isDate ? (
-        <input type="date" value={value} onChange={e => onValueChange(e.target.value)} style={{ ...inputBox, direction: "ltr" }} />
+        <input type="date" value={value} onChange={e=>onValue(e.target.value)} style={{...inputS, direction:"ltr"}} />
+      ) : isYN ? (
+        <div style={{display:"flex", gap:10, direction:dir}}>
+          {[["Yes","Sí","نعم","Oui"],["No","No","لا","Non"]].map(opts => {
+            const idx = ["en","es","ar","fr"].indexOf(lang.code);
+            const display = idx>=0 ? opts[idx] : opts[0];
+            const enVal = opts[0];
+            return (
+              <button key={enVal} onClick={()=>onValue(value===enVal ? "" : enVal)} style={{
+                padding:"8px 20px", borderRadius:20, cursor:"pointer", fontFamily:"inherit",
+                fontSize:13, fontWeight:600,
+                border: value===enVal ? `2px solid ${C.teal}` : `1.5px solid ${C.border}`,
+                background: value===enVal ? C.teal : C.white,
+                color: value===enVal ? C.white : C.mid,
+              }}>{display}</button>
+            );
+          })}
+        </div>
       ) : isSelect ? (
-        <select value={value} onChange={e => onValueChange(e.target.value)} style={{ ...inputBox, cursor: "pointer" }}>
-          <option value="">{s("select_option", lang.code)}</option>
-          {field.optionKeys?.map(ok => (
-            <option key={ok} value={s(ok, "en")}>{s(ok, lang.code)}</option>
-          ))}
+        <select value={value} onChange={e=>onValue(e.target.value)} style={{...inputS, cursor:"pointer"}}>
+          <option value="">{UI.select[lang.code]}</option>
+          {(field.opts||[]).map(row => {
+            const idx = ["en","es","ar","fr"].indexOf(lang.code);
+            const display = idx>=0 ? row[idx] : row[0];
+            return <option key={row[0]} value={row[0]}>{display}</option>;
+          })}
         </select>
-      ) : field.type === "textarea" ? (
-        <textarea value={value} onChange={e => onValueChange(e.target.value)}
-          style={{ ...inputBox, resize: "vertical", lineHeight: 1.6, minHeight: field.tall ? 130 : 64 }}
-          placeholder={s("type_here", lang.code)} />
+      ) : field.type==="textarea" ? (
+        <textarea value={value} onChange={e=>onValue(e.target.value)}
+          style={{...inputS, resize:"vertical", lineHeight:1.6, minHeight:field.tall?140:72}}
+          placeholder={UI.type_here[lang.code]} />
       ) : (
-        <input type="text" value={value} onChange={e => onValueChange(e.target.value)}
-          style={inputBox} placeholder={s("type_here", lang.code)} />
+        <input type="text" value={value} onChange={e=>onValue(e.target.value)}
+          style={inputS} placeholder={UI.type_here[lang.code]} />
       )}
-
-      {!isDate && !isSelect && lang.code !== "en" && (
-        <div style={{ display: "flex", gap: 6, marginTop: 10, alignItems: "center", direction: lang.rtl ? "rtl" : "ltr" }}>
-          <span style={{ fontSize: 11, color: C.textLight }}>{s("answered_in", lang.code)}</span>
-          <button onClick={() => onAnsweredInChange(lang.code)} style={{
-            fontSize: 12, padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
-            border: answeredIn === lang.code ? `2px solid ${C.teal}` : `1.5px solid ${C.border}`,
-            background: answeredIn === lang.code ? C.teal : C.white,
-            color: answeredIn === lang.code ? C.white : C.textMid,
-          }}>{lang.nativeLabel}</button>
-          <button onClick={() => onAnsweredInChange("en")} style={{
-            fontSize: 12, padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit", fontWeight: 600,
-            border: answeredIn === "en" ? `2px solid ${C.teal}` : `1.5px solid ${C.border}`,
-            background: answeredIn === "en" ? C.teal : C.white,
-            color: answeredIn === "en" ? C.white : C.textMid,
-          }}>{s("in_english", lang.code)}</button>
+      {!isDate && !isSelect && !isYN && nativeLang && (
+        <div style={{display:"flex", gap:6, marginTop:10, alignItems:"center", direction:dir}}>
+          <span style={{fontSize:11, color:C.light}}>{UI.answered_in[lang.code]}</span>
+          {([lang.code,"en"] as string[]).map(lcode => (
+            <button key={lcode} onClick={()=>onAnsweredIn(lcode)} style={{
+              fontSize:12, padding:"5px 14px", borderRadius:20, cursor:"pointer",
+              fontFamily:"inherit", fontWeight:600,
+              border: answeredIn===lcode ? `2px solid ${C.teal}` : `1.5px solid ${C.border}`,
+              background: answeredIn===lcode ? C.teal : C.white,
+              color: answeredIn===lcode ? C.white : C.mid,
+            }}>{lcode==="en" ? UI.in_english[lang.code] : lang.nativeLabel}</button>
+          ))}
         </div>
       )}
-
-      {needsEnTranslation && (
-        <div style={{ marginTop: 10, padding: "10px 12px", background: C.tealLight, border: `1.5px solid ${C.tealBorder}`, borderRadius: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.teal, marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: "0.05em" }}>English</div>
-          <div style={{ fontSize: 13, color: translating ? C.textLight : C.text, fontStyle: translating ? "italic" : "normal", lineHeight: 1.5 }}>
-            {translating ? s("translating", lang.code) : enTranslation || s("translation_here", lang.code)}
+      {needsEnTrans && (
+        <div style={{marginTop:10, padding:"10px 12px", background:C.tealL, border:`1.5px solid ${C.tealB}`, borderRadius:8}}>
+          <div style={{fontSize:11, fontWeight:700, color:C.teal, marginBottom:4, textTransform:"uppercase" as const, letterSpacing:"0.05em"}}>English</div>
+          <div style={{fontSize:13, color:loading?C.light:C.text, fontStyle:loading?"italic":"normal", lineHeight:1.5}}>
+            {loading ? UI.translating[lang.code] : enTrans || UI.trans_here[lang.code]}
           </div>
         </div>
       )}
@@ -376,123 +432,95 @@ function FieldRow({ field, lang, value, onValueChange, answeredIn, onAnsweredInC
   );
 }
 
-// ─── Review Screen ──────────────────────────────────────────────────
-interface ReviewScreenProps {
-  formData: Record<string, string>;
-  answeredIn: Record<string, string>;
-  lang: Language;
-  onBack: () => void;
-}
-
-function ReviewScreen({ formData, answeredIn, lang, onBack }: ReviewScreenProps) {
-  const [enValues, setEnValues] = useState<Record<string, string>>({});
-  const [translatingAll, setTranslatingAll] = useState(true);
+// ─── Review screen ─────────────────────────────────────────────────────────
+function ReviewScreen({formData,answeredIn,lang,onBack}:{
+  formData:Record<string,string>; answeredIn:Record<string,string>; lang:Language; onBack:()=>void;
+}) {
+  const [enVals, setEnVals] = useState<Record<string,string>>({});
+  const [busy, setBusy] = useState(true);
+  const [dlBusy, setDlBusy] = useState<"en"|"nat"|null>(null);
 
   useEffect(() => {
     const run = async () => {
-      setTranslatingAll(true);
-      const updates: Record<string, string> = {};
+      setBusy(true);
+      const out: Record<string,string> = {};
       for (const sec of SECTIONS) {
         for (const f of sec.fields) {
-          const val = formData[f.id];
-          if (!val?.trim()) continue;
+          const v = formData[f.id];
+          if (!v?.trim()) continue;
           const ans = answeredIn[f.id] || lang.code;
-          if (ans === lang.code && lang.code !== "en" && f.type !== "date" && f.type !== "select") {
-            updates[f.id] = await translateToEnglish(val, lang.code);
-          } else {
-            updates[f.id] = val;
-          }
+          if (ans===lang.code && lang.code!=="en" && f.type!=="date" && f.type!=="select" && f.type!=="yesno") {
+            out[f.id] = await toEnglish(v, lang.code);
+          } else { out[f.id] = v; }
         }
       }
-      setEnValues(updates);
-      setTranslatingAll(false);
+      setEnVals(out); setBusy(false);
     };
     run();
   }, [formData, answeredIn, lang.code]);
 
-  const needsTransCount = SECTIONS.flatMap(sec =>
-    sec.fields.filter(f => {
-      const ans = answeredIn[f.id] || lang.code;
-      return ans === lang.code && lang.code !== "en" && formData[f.id]?.trim() && f.type !== "date" && f.type !== "select";
-    })
-  ).length;
+  const lc = lang.code as "en"|"es"|"ar"|"fr";
+  const dir = lang.rtl ? "rtl" : "ltr";
 
-  const download = (english: boolean) => {
-    const lines: string[] = [`I-589 — ${english ? "English (for submission)" : `${lang.label} — family copy`}`, ""];
-    SECTIONS.forEach(sec => {
-      const filled = sec.fields.filter(f => formData[f.id]);
-      if (!filled.length) return;
-      lines.push(`=== ${s(sec.titleKey, english ? "en" : lang.code)} ===`);
-      filled.forEach(f => {
-        const label = s(f.labelKey, english ? "en" : lang.code);
-        const val = english ? (enValues[f.id] || formData[f.id]) : formData[f.id];
-        lines.push(`${label}: ${val}`);
+  const download = async (english: boolean) => {
+    setDlBusy(english?"en":"nat");
+    try {
+      const payload: Record<string,string> = {};
+      SECTIONS.forEach(sec => sec.fields.forEach(f => {
+        const v = english ? (enVals[f.id]||formData[f.id]) : formData[f.id];
+        if (v) payload[f.id] = v;
+      }));
+      const r = await fetch("/api/generate-pdf",{
+        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)
       });
-      lines.push("");
-    });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/plain" }));
-    a.download = english ? "i589-english.txt" : `i589-${lang.code}.txt`;
-    a.click();
+      if (!r.ok) throw new Error();
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = english ? "i589-english-draft.pdf" : `i589-${lang.code}-family.pdf`;
+      a.click();
+    } catch { alert("PDF generation failed. Please try again."); }
+    finally { setDlBusy(null); }
   };
 
   return (
-    <div style={{ fontFamily: "system-ui, -apple-system, sans-serif", maxWidth: 1100, margin: "0 auto", padding: "0 16px 6rem", color: C.text, direction: lang.rtl ? "rtl" : "ltr" }}>
-      <div style={{ padding: "24px 0 20px", borderBottom: `3px solid ${C.teal}`, marginBottom: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 12 }}>
+    <div style={{fontFamily:"system-ui,sans-serif", maxWidth:1100, margin:"0 auto", padding:"0 16px 6rem", color:C.text, direction:dir}}>
+      <div style={{padding:"24px 0 20px", borderBottom:`3px solid ${C.teal}`, marginBottom:24}}>
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap" as const, gap:12}}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: C.teal, marginBottom: 6 }}>USCIS I-589</div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{s("review_title", lang.code)}</div>
-            <div style={{ fontSize: 14, color: C.textMid, marginTop: 4, maxWidth: 560 }}>{s("review_desc", lang.code)}</div>
+            <div style={{fontSize:12, fontWeight:700, textTransform:"uppercase" as const, letterSpacing:"0.08em", color:C.teal, marginBottom:6}}>USCIS I-589</div>
+            <div style={{fontSize:22, fontWeight:700}}>{UI.rev_title[lang.code]}</div>
+            <div style={{fontSize:14, color:C.mid, marginTop:4}}>{UI.rev_desc[lang.code]}</div>
           </div>
-          <button onClick={onBack} style={{ padding: "10px 20px", borderRadius: 8, border: `1.5px solid ${C.border}`, background: C.white, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 600, color: C.text }}>
-            {s("back_to_form", lang.code)}
+          <button onClick={onBack} style={{padding:"10px 20px", borderRadius:8, border:`1.5px solid ${C.border}`, background:C.white, cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:600, color:C.text}}>
+            {UI.back[lang.code]}
           </button>
         </div>
       </div>
-
-      {translatingAll && (
-        <div style={{ background: C.tealLight, border: `1.5px solid ${C.tealBorder}`, borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 14, color: C.teal, fontWeight: 600 }}>
-          {s("translating", lang.code)}
-        </div>
-      )}
-
-      {needsTransCount > 0 && !translatingAll && (
-        <div style={{ background: C.amberLight, border: `1.5px solid ${C.amberBorder}`, borderRadius: 10, padding: "14px 18px", marginBottom: 20, fontSize: 14, color: C.amber, fontWeight: 600 }}>
-          ⚠ {needsTransCount} {s("needs_trans_warn", lang.code)}
-        </div>
-      )}
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.05em", color: C.teal }}>{s("for_review", lang.code)} — {lang.nativeLabel}</div>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.05em", color: C.textMid }}>{s("for_submission", lang.code)}</div>
+      {busy && <div style={{background:C.tealL, border:`1.5px solid ${C.tealB}`, borderRadius:10, padding:"14px 18px", marginBottom:20, fontSize:14, color:C.teal, fontWeight:600}}>{UI.translating[lang.code]}</div>}
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:12}}>
+        <div style={{fontSize:12, fontWeight:700, textTransform:"uppercase" as const, color:C.teal}}>{UI.your_lang[lang.code]} — {lang.nativeLabel}</div>
+        <div style={{fontSize:12, fontWeight:700, textTransform:"uppercase" as const, color:C.mid}}>{UI.english_ver[lang.code]}</div>
       </div>
-
       {SECTIONS.map(sec => {
-        const filled = sec.fields.filter(f => formData[f.id]);
+        const filled = sec.fields.filter(f=>formData[f.id]);
         if (!filled.length) return null;
         return (
-          <div key={sec.id} style={{ marginBottom: 28 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 8 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, padding: "10px 14px", background: C.gray, borderRadius: 8, borderLeft: lang.rtl ? "none" : `4px solid ${C.teal}`, borderRight: lang.rtl ? `4px solid ${C.teal}` : "none" }}>
-                {s(sec.titleKey, lang.code)}
-              </div>
-              <div style={{ fontSize: 14, fontWeight: 700, padding: "10px 14px", background: C.gray, borderRadius: 8, borderLeft: `4px solid ${C.tealBorder}` }}>
-                {s(sec.titleKey, "en")}
-              </div>
+          <div key={sec.id} style={{marginBottom:28}}>
+            <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:8}}>
+              <div style={{fontSize:14, fontWeight:700, padding:"10px 14px", background:C.gray, borderRadius:8, borderLeft:lang.rtl?"none":`4px solid ${C.teal}`, borderRight:lang.rtl?`4px solid ${C.teal}`:"none"}}>{sec[lc]||sec.en}</div>
+              <div style={{fontSize:14, fontWeight:700, padding:"10px 14px", background:C.gray, borderRadius:8, borderLeft:`4px solid ${C.tealB}`}}>{sec.en}</div>
             </div>
             {filled.map(f => (
-              <div key={f.id} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 8 }}>
-                <div style={{ background: C.tealLight, border: `1.5px solid ${C.tealBorder}`, borderRadius: 10, padding: 14, direction: lang.rtl ? "rtl" : "ltr" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.teal, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 6 }}>{s(f.labelKey, lang.code)}</div>
-                  <div style={{ padding: "8px 10px", background: C.white, borderRadius: 8, border: `1.5px solid ${C.tealBorder}`, fontSize: 14, color: C.text, lineHeight: 1.5, minHeight: 38 }}>
-                    {formData[f.id]}
-                  </div>
+              <div key={f.id} style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:8}}>
+                <div style={{background:C.tealL, border:`1.5px solid ${C.tealB}`, borderRadius:10, padding:14, direction:dir}}>
+                  <div style={{fontSize:11, fontWeight:700, color:C.teal, textTransform:"uppercase" as const, letterSpacing:"0.05em", marginBottom:6}}>{f[lc]||f.en}</div>
+                  <div style={{padding:"8px 10px", background:C.white, borderRadius:8, border:`1.5px solid ${C.tealB}`, fontSize:14, color:C.text, lineHeight:1.5, minHeight:38, direction:dir, whiteSpace:"pre-wrap" as const}}>{formData[f.id]}</div>
                 </div>
-                <div style={{ background: C.white, border: `1.5px solid ${C.border}`, borderRadius: 10, padding: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.textMid, textTransform: "uppercase" as const, letterSpacing: "0.05em", marginBottom: 6 }}>{s(f.labelKey, "en")}</div>
-                  <div style={{ padding: "8px 10px", background: C.gray, borderRadius: 8, border: `1.5px solid ${C.border}`, fontSize: 14, color: translatingAll ? C.textLight : C.text, lineHeight: 1.5, minHeight: 38, fontStyle: translatingAll ? "italic" : "normal" }}>
-                    {translatingAll ? s("translating", lang.code) : (enValues[f.id] || formData[f.id])}
+                <div style={{background:C.white, border:`1.5px solid ${C.border}`, borderRadius:10, padding:14}}>
+                  <div style={{fontSize:11, fontWeight:700, color:C.mid, textTransform:"uppercase" as const, letterSpacing:"0.05em", marginBottom:6}}>{f.en}</div>
+                  <div style={{padding:"8px 10px", background:C.gray, borderRadius:8, border:`1.5px solid ${C.border}`, fontSize:14, color:busy?C.light:C.text, lineHeight:1.5, minHeight:38, fontStyle:busy?"italic":"normal", whiteSpace:"pre-wrap" as const}}>
+                    {busy ? UI.translating[lang.code] : (enVals[f.id]||formData[f.id])}
                   </div>
                 </div>
               </div>
@@ -500,44 +528,39 @@ function ReviewScreen({ formData, answeredIn, lang, onBack }: ReviewScreenProps)
           </div>
         );
       })}
-
-      <div style={{ position: "sticky", bottom: 0, background: C.white, borderTop: `2px solid ${C.border}`, padding: "16px 0", display: "flex", gap: 12, flexWrap: "wrap" as const }}>
-        <button onClick={() => download(false)} style={{ flex: 1, minWidth: 200, padding: "13px", borderRadius: 8, background: C.teal, color: C.white, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700 }}>
-          {s("dl_native", lang.code)}
+      <div style={{position:"sticky", bottom:0, background:C.white, borderTop:`2px solid ${C.border}`, padding:"16px 0", display:"flex", gap:12, flexWrap:"wrap" as const}}>
+        <button onClick={()=>download(false)} disabled={!!dlBusy} style={{flex:1, minWidth:200, padding:"13px", borderRadius:8, background:dlBusy?C.gray:C.teal, color:dlBusy?C.mid:C.white, border:"none", cursor:dlBusy?"default":"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
+          {dlBusy==="nat" ? UI.gen_pdf[lang.code] : UI.dl_nat[lang.code]}
         </button>
-        <button onClick={() => download(true)} style={{ flex: 1, minWidth: 200, padding: "13px", borderRadius: 8, background: C.white, color: C.teal, border: `2px solid ${C.teal}`, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700 }}>
-          {s("dl_english", lang.code)}
+        <button onClick={()=>download(true)} disabled={!!dlBusy} style={{flex:1, minWidth:200, padding:"13px", borderRadius:8, background:dlBusy?C.gray:C.white, color:dlBusy?C.mid:C.teal, border:`2px solid ${dlBusy?C.border:C.teal}`, cursor:dlBusy?"default":"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
+          {dlBusy==="en" ? UI.gen_pdf[lang.code] : UI.dl_en[lang.code]}
         </button>
       </div>
     </div>
   );
 }
 
-// ─── Language Picker ────────────────────────────────────────────────
-function LanguagePicker({ onSelect }: { onSelect: (l: Language) => void }) {
-  const [hovered, setHovered] = useState<string | null>(null);
+// ─── Language picker ────────────────────────────────────────────────────────
+function LangPicker({onSelect}:{onSelect:(l:Language)=>void}) {
+  const [hov, setHov] = useState<string|null>(null);
   return (
-    <div style={{ fontFamily: "system-ui, -apple-system, sans-serif", minHeight: 400, display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", padding: "3rem 16px", color: C.text }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.1em", color: C.teal, marginBottom: 12 }}>USCIS Form I-589</div>
-      <div style={{ fontSize: 26, fontWeight: 700, marginBottom: 10, textAlign: "center" as const }}>Asylum Application Helper</div>
-      <div style={{ fontSize: 15, color: C.textMid, marginBottom: 36, textAlign: "center" as const, maxWidth: 480, lineHeight: 1.6 }}>
+    <div style={{fontFamily:"system-ui,sans-serif", minHeight:400, display:"flex", flexDirection:"column" as const, alignItems:"center", justifyContent:"center", padding:"3rem 16px", color:C.text}}>
+      <div style={{fontSize:12, fontWeight:700, textTransform:"uppercase" as const, letterSpacing:"0.1em", color:C.teal, marginBottom:12}}>USCIS Form I-589</div>
+      <div style={{fontSize:26, fontWeight:700, marginBottom:10, textAlign:"center" as const}}>Asylum Application Helper</div>
+      <div style={{fontSize:15, color:C.mid, marginBottom:36, textAlign:"center" as const, maxWidth:480, lineHeight:1.6}}>
         Choose your language · Elige tu idioma · اختر لغتك · Choisissez votre langue
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, width: "100%", maxWidth: 440 }}>
-        {LANGUAGES.map(l => (
-          <button key={l.code} onClick={() => onSelect(l)}
-            onMouseOver={() => setHovered(l.code)}
-            onMouseOut={() => setHovered(null)}
-            style={{
-              padding: "20px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit",
-              border: hovered === l.code ? `2px solid ${C.teal}` : `2px solid ${C.border}`,
-              background: hovered === l.code ? C.tealLight : C.white,
-              display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 6,
-              transition: "all 0.15s",
-            }}>
-            <span style={{ fontSize: 30 }}>{l.flag}</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{l.nativeLabel}</span>
-            <span style={{ fontSize: 13, color: C.textMid }}>{l.label}</span>
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, width:"100%", maxWidth:440}}>
+        {LANGS.map(l => (
+          <button key={l.code} onClick={()=>onSelect(l)}
+            onMouseOver={()=>setHov(l.code)} onMouseOut={()=>setHov(null)}
+            style={{padding:"20px", borderRadius:12, cursor:"pointer", fontFamily:"inherit",
+              border: hov===l.code ? `2px solid ${C.teal}` : `2px solid ${C.border}`,
+              background: hov===l.code ? C.tealL : C.white,
+              display:"flex", flexDirection:"column" as const, alignItems:"center", gap:6, transition:"all 0.15s"}}>
+            <span style={{fontSize:30}}>{l.flag}</span>
+            <span style={{fontSize:16, fontWeight:700}}>{l.nativeLabel}</span>
+            <span style={{fontSize:13, color:C.mid}}>{l.label}</span>
           </button>
         ))}
       </div>
@@ -545,88 +568,85 @@ function LanguagePicker({ onSelect }: { onSelect: (l: Language) => void }) {
   );
 }
 
-// ─── Main App ───────────────────────────────────────────────────────
+// ─── Main app ───────────────────────────────────────────────────────────────
 export default function App() {
-  const [lang, setLang] = useState<Language | null>(null);
-  const [activeSectionIdx, setActiveSectionIdx] = useState(0);
-  const [formData, setFormData] = useState<Record<string, string>>({});
-  const [answeredIn, setAnsweredIn] = useState<Record<string, string>>({});
+  const [lang, setLang] = useState<Language|null>(null);
+  const [secIdx, setSecIdx] = useState(0);
+  const [formData, setFormData] = useState<Record<string,string>>({});
+  const [answeredIn, setAnsweredIn] = useState<Record<string,string>>({});
   const [showReview, setShowReview] = useState(false);
 
-  if (!lang) return <LanguagePicker onSelect={setLang} />;
-  if (showReview) return <ReviewScreen formData={formData} answeredIn={answeredIn} lang={lang} onBack={() => setShowReview(false)} />;
+  if (!lang) return <LangPicker onSelect={setLang} />;
+  if (showReview) return <ReviewScreen formData={formData} answeredIn={answeredIn} lang={lang} onBack={()=>setShowReview(false)} />;
 
-  const section = SECTIONS[activeSectionIdx];
-  const totalFilled = Object.values(formData).filter(v => v?.trim()).length;
+  const sec = SECTIONS[secIdx];
+  const lc = lang.code as "en"|"es"|"ar"|"fr";
+  const dir = lang.rtl ? "rtl" : "ltr";
+  const filled = Object.values(formData).filter(v=>v?.trim()).length;
+  const shortKey = `short_${lc}` as keyof Section;
 
   return (
-    <div style={{ fontFamily: "system-ui, -apple-system, sans-serif", maxWidth: 680, margin: "0 auto", padding: "0 16px 4rem", color: C.text, direction: lang.rtl ? "rtl" : "ltr" }}>
-      <div style={{ padding: "24px 0 20px", borderBottom: `3px solid ${C.teal}`, marginBottom: 24 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: "0.08em", color: C.teal, marginBottom: 6 }}>{s("app_subtitle", lang.code)}</div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" as const }}>
+    <div style={{fontFamily:"system-ui,sans-serif", maxWidth:700, margin:"0 auto", padding:"0 16px 4rem", color:C.text, direction:dir}}>
+      <div style={{padding:"24px 0 20px", borderBottom:`3px solid ${C.teal}`, marginBottom:24}}>
+        <div style={{fontSize:12, fontWeight:700, textTransform:"uppercase" as const, letterSpacing:"0.08em", color:C.teal, marginBottom:6}}>{UI.subtitle[lang.code]}</div>
+        <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, flexWrap:"wrap" as const}}>
           <div>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>{s("app_title", lang.code)}</div>
-            <div style={{ fontSize: 13, color: C.textMid }}>{s("app_desc", lang.code)}</div>
+            <div style={{fontSize:22, fontWeight:700, marginBottom:4}}>{UI.title[lang.code]}</div>
+            <div style={{fontSize:13, color:C.mid}}>{UI.desc[lang.code]}</div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 6 }}>
-            {totalFilled > 0 && <div style={{ fontSize: 12, color: C.textMid }}>{totalFilled} {s("fields_filled", lang.code)}</div>}
-            <button onClick={() => setShowReview(true)} style={{ padding: "10px 20px", borderRadius: 8, background: C.teal, color: C.white, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700 }}>
-              {s("review_export", lang.code)}
+          <div style={{display:"flex", flexDirection:"column" as const, alignItems:"flex-end", gap:6}}>
+            {filled>0 && <div style={{fontSize:12, color:C.mid}}>{filled} {UI.filled[lang.code]}</div>}
+            <button onClick={()=>setShowReview(true)} style={{padding:"10px 20px", borderRadius:8, background:C.teal, color:C.white, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:13, fontWeight:700}}>
+              {UI.review[lang.code]}
             </button>
           </div>
         </div>
       </div>
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 20, flexWrap: "wrap" as const }}>
-        {LANGUAGES.map(l => (
-          <button key={l.code} onClick={() => setLang(l)} style={{
-            padding: "6px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 600,
-            border: lang.code === l.code ? `2px solid ${C.teal}` : `1.5px solid ${C.border}`,
-            background: lang.code === l.code ? C.teal : C.white,
-            color: lang.code === l.code ? C.white : C.textMid,
+      <div style={{display:"flex", gap:8, alignItems:"center", marginBottom:20, flexWrap:"wrap" as const}}>
+        {LANGS.map(l => (
+          <button key={l.code} onClick={()=>setLang(l)} style={{
+            padding:"6px 14px", borderRadius:20, cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight:600,
+            border: lang.code===l.code ? `2px solid ${C.teal}` : `1.5px solid ${C.border}`,
+            background: lang.code===l.code ? C.teal : C.white,
+            color: lang.code===l.code ? C.white : C.mid,
           }}>{l.flag} {l.nativeLabel}</button>
         ))}
       </div>
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 20 }}>
-        {SECTIONS.map((sec, i) => (
-          <button key={sec.id} onClick={() => setActiveSectionIdx(i)} style={{
-            padding: "9px 16px", borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700,
-            border: activeSectionIdx === i ? `2px solid ${C.teal}` : `1.5px solid ${C.border}`,
-            background: activeSectionIdx === i ? C.teal : C.white,
-            color: activeSectionIdx === i ? C.white : C.textMid,
-          }}>{s(sec.shortKey, lang.code)}</button>
+      <div style={{display:"flex", gap:6, flexWrap:"wrap" as const, marginBottom:20}}>
+        {SECTIONS.map((s,i) => (
+          <button key={s.id} onClick={()=>setSecIdx(i)} style={{
+            padding:"8px 14px", borderRadius:8, cursor:"pointer", fontFamily:"inherit", fontSize:12, fontWeight:700,
+            border: secIdx===i ? `2px solid ${C.teal}` : `1.5px solid ${C.border}`,
+            background: secIdx===i ? C.teal : C.white,
+            color: secIdx===i ? C.white : C.mid,
+          }}>{s[shortKey] as string || s.short_en}</button>
         ))}
       </div>
-
-      <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 18, padding: "12px 16px", background: C.gray, borderRadius: 8, borderLeft: lang.rtl ? "none" : `4px solid ${C.teal}`, borderRight: lang.rtl ? `4px solid ${C.teal}` : "none" }}>
-        {s(section.titleKey, lang.code)}
+      <div style={{fontSize:14, fontWeight:700, color:C.text, marginBottom:16, padding:"12px 16px", background:C.gray, borderRadius:8, borderLeft:lang.rtl?"none":`4px solid ${C.teal}`, borderRight:lang.rtl?`4px solid ${C.teal}`:"none"}}>
+        {sec[lc]||sec.en}
       </div>
-
-      {section.fields.map(field => (
-        <FieldRow
-          key={field.id} field={field} lang={lang}
-          value={formData[field.id] || ""}
-          onValueChange={val => setFormData(prev => ({ ...prev, [field.id]: val }))}
-          answeredIn={answeredIn[field.id] || lang.code}
-          onAnsweredInChange={lc => setAnsweredIn(prev => ({ ...prev, [field.id]: lc }))}
+      {sec.fields.map(f => (
+        <FieldRow key={f.id} field={f} lang={lang}
+          value={formData[f.id]||""}
+          onValue={v=>setFormData(p=>({...p,[f.id]:v}))}
+          answeredIn={answeredIn[f.id]||lang.code}
+          onAnsweredIn={lcode=>setAnsweredIn(p=>({...p,[f.id]:lcode}))}
         />
       ))}
-
-      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 28, paddingTop: 20, borderTop: `1.5px solid ${C.border}` }}>
-        <button onClick={() => setActiveSectionIdx(i => Math.max(0, i - 1))} disabled={activeSectionIdx === 0}
-          style={{ padding: "10px 22px", borderRadius: 8, border: `1.5px solid ${C.border}`, background: activeSectionIdx === 0 ? C.gray : C.white, color: activeSectionIdx === 0 ? C.textLight : C.text, cursor: activeSectionIdx === 0 ? "default" : "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700 }}>
-          {s("previous", lang.code)}
+      <div style={{display:"flex", justifyContent:"space-between", marginTop:24, paddingTop:20, borderTop:`1.5px solid ${C.border}`}}>
+        <button onClick={()=>setSecIdx(i=>Math.max(0,i-1))} disabled={secIdx===0}
+          style={{padding:"10px 22px", borderRadius:8, border:`1.5px solid ${C.border}`, background:secIdx===0?C.gray:C.white, color:secIdx===0?C.light:C.text, cursor:secIdx===0?"default":"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
+          {UI.prev[lang.code]}
         </button>
-        {activeSectionIdx < SECTIONS.length - 1 ? (
-          <button onClick={() => setActiveSectionIdx(i => Math.min(SECTIONS.length - 1, i + 1))}
-            style={{ padding: "10px 22px", borderRadius: 8, background: C.teal, color: C.white, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700 }}>
-            {s("next", lang.code)}
+        {secIdx<SECTIONS.length-1 ? (
+          <button onClick={()=>setSecIdx(i=>Math.min(SECTIONS.length-1,i+1))}
+            style={{padding:"10px 22px", borderRadius:8, background:C.teal, color:C.white, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
+            {UI.next[lang.code]}
           </button>
         ) : (
-          <button onClick={() => setShowReview(true)}
-            style={{ padding: "10px 22px", borderRadius: 8, background: C.teal, color: C.white, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700 }}>
-            {s("review_export", lang.code)}
+          <button onClick={()=>setShowReview(true)}
+            style={{padding:"10px 22px", borderRadius:8, background:C.teal, color:C.white, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
+            {UI.review[lang.code]}
           </button>
         )}
       </div>
