@@ -36,8 +36,8 @@ const UI: Record<string,Record<string,string>> = {
   rev_title:   {en:"Review Your Application",es:"Revise Su Solicitud",ar:"راجع طلبك",fr:"Révisez Votre Demande"},
   rev_desc:    {en:"Check both versions. Export as PDF when ready.",es:"Revise ambas versiones. Exporte como PDF cuando esté listo.",ar:"راجع كلتا النسختين. صدّر كملف PDF عند الاستعداد.",fr:"Vérifiez les deux versions. Exportez en PDF quand vous êtes prêt."},
   back:        {en:"← Back to form",es:"← Volver al formulario",ar:"→ العودة للنموذج",fr:"← Retour au formulaire"},
-  dl_en:       {en:"↓ Download English PDF",es:"↓ Descargar PDF en inglés",ar:"↓ تحميل PDF بالإنجليزية",fr:"↓ Télécharger PDF anglais"},
-  dl_nat:      {en:"↓ Download your language PDF",es:"↓ Descargar PDF en español",ar:"↓ تحميل PDF بالعربية",fr:"↓ Télécharger PDF français"},
+  dl_en:       {en:"↓ Download English .txt",es:"↓ Descargar PDF en inglés",ar:"↓ تحميل PDF بالإنجليزية",fr:"↓ Télécharger PDF anglais"},
+  dl_nat:      {en:"↓ Download your language .txt",es:"↓ Descargar PDF en español",ar:"↓ تحميل PDF بالعربية",fr:"↓ Télécharger PDF français"},
   gen_pdf:     {en:"Generating PDF…",es:"Generando PDF…",ar:"جارٍ إنشاء PDF…",fr:"Génération du PDF…"},
   your_lang:   {en:"Your language — for review",es:"Tu idioma — para revisar",ar:"لغتك — للمراجعة",fr:"Votre langue — pour révision"},
   english_ver: {en:"English — for submission",es:"Inglés — para presentar",ar:"الإنجليزية — للتقديم",fr:"Anglais — pour soumission"},
@@ -126,7 +126,7 @@ function sibFields(n: number): Field[] {
 const SECTIONS: Section[] = [
   { id:"ai",
     en:"Part A.I — Information About You", es:"Parte A.I — Información Sobre Usted", ar:"الجزء أ.١ — معلوماتك الشخصية", fr:"Partie A.I — Informations Vous Concernant",
-    short_en:"About You", short_es:"Sobre Usted", short_ar:"عنك", short_fr:"À Votre Sujet",
+    short_en:"Part A.I", short_es:"Parte A.I", short_ar:"أ.١", short_fr:"Partie A.I",
     fields:[
       {id:"convention_torture",en:"NOTE: Check Yes to also apply for withholding under Convention Against Torture",es:"NOTA: Marque Sí para solicitar también suspensión bajo la Convención Contra la Tortura",ar:"ملاحظة: اختر نعم لتقدم أيضاً بطلب تعليق الترحيل بموجب اتفاقية مناهضة التعذيب",fr:"NOTE: Sélectionnez Oui pour demander aussi la suspension d'expulsion en vertu de la Convention contre la Torture",type:"yesno"},
       {id:"a_number",en:"1. Alien Registration Number (A-Number) (if any)",es:"1. Número de Registro de Extranjero (A-Number) (si tiene)",ar:"١. رقم تسجيل الأجنبي (A-Number) (إن وجد)",fr:"1. Numéro d'enregistrement étranger (A-Number) (si applicable)",type:"text"},
@@ -179,7 +179,7 @@ const SECTIONS: Section[] = [
     ]},
   { id:"aii_spouse",
     en:"Part A.II — Your Spouse", es:"Parte A.II — Su Cónyuge", ar:"الجزء أ.٢ — زوجك/زوجتك", fr:"Partie A.II — Votre Conjoint·e",
-    short_en:"Spouse", short_es:"Cónyuge", short_ar:"الزوج/ة", short_fr:"Conjoint·e",
+    short_en:"Part A.II — Spouse", short_es:"A.II — Cónyuge", short_ar:"أ.٢ — الزوج/ة", short_fr:"A.II — Conjoint·e",
     fields:[
       {id:"not_married",en:"I am not married (check Yes to skip spouse section)",es:"No estoy casado/a (marque Sí para omitir la sección del cónyuge)",ar:"لست متزوجاً/ة (اختر نعم لتخطي قسم الزوج/ة)",fr:"Je ne suis pas marié·e (sélectionnez Oui pour ignorer la section conjoint·e)",type:"yesno"},
       {id:"sp_a_number",en:"Spouse — 1. A-Number (if any)",es:"Cónyuge — 1. Número A (si tiene)",ar:"الزوج/ة — ١. رقم A (إن وجد)",fr:"Conjoint·e — 1. Numéro A (si applicable)",type:"text"},
@@ -209,7 +209,7 @@ const SECTIONS: Section[] = [
     ]},
   { id:"aii_children",
     en:"Part A.II — Your Children", es:"Parte A.II — Sus Hijos/as", ar:"الجزء أ.٢ — أطفالك", fr:"Partie A.II — Vos Enfants",
-    short_en:"Children", short_es:"Hijos/as", short_ar:"الأطفال", short_fr:"Enfants",
+    short_en:"Part A.II — Children", short_es:"A.II — Hijos/as", short_ar:"أ.٢ — الأطفال", short_fr:"A.II — Enfants",
     fields:[
       {id:"no_children",en:"I do not have any children (check Yes if applicable)",es:"No tengo hijos/as (marque Sí si aplica)",ar:"ليس لدي أطفال (اختر نعم إن انطبق)",fr:"Je n'ai pas d'enfants (sélectionnez Oui si applicable)",type:"yesno"},
       {id:"num_children",en:"Total number of children",es:"Número total de hijos/as",ar:"العدد الإجمالي للأطفال",fr:"Nombre total d'enfants",type:"text"},
@@ -217,7 +217,7 @@ const SECTIONS: Section[] = [
     ]},
   { id:"aiii",
     en:"Part A.III — Information About Your Background", es:"Parte A.III — Sus Antecedentes", ar:"الجزء أ.٣ — خلفيتك", fr:"Partie A.III — Votre Parcours",
-    short_en:"Background", short_es:"Antecedentes", short_ar:"الخلفية", short_fr:"Parcours",
+    short_en:"Part A.III", short_es:"Parte A.III", short_ar:"أ.٣", short_fr:"Partie A.III",
     fields:[
       {id:"h1_street",en:"1. Last home country address — Row 1 — Number and Street (if available)",es:"1. Última dirección en país de origen — Fila 1 — Calle y número",ar:"١. آخر عنوان في البلد الأصلي — صف ١ — الشارع والرقم",fr:"1. Dernière adresse au pays — Rangée 1 — Numéro et rue",type:"text"},
       {id:"h1_city",en:"1. Last home country address — Row 1 — City/Town",es:"1. Última dirección — Fila 1 — Ciudad/Pueblo",ar:"١. آخر عنوان — صف ١ — المدينة/البلدة",fr:"1. Dernière adresse — Rangée 1 — Ville/Commune",type:"text"},
@@ -246,7 +246,7 @@ const SECTIONS: Section[] = [
     ]},
   { id:"b",
     en:"Part B — Information About Your Application", es:"Parte B — Información Sobre Su Solicitud", ar:"الجزء ب — معلومات عن طلبك", fr:"Partie B — Informations Sur Votre Demande",
-    short_en:"Claim (B)", short_es:"Solicitud (B)", short_ar:"الطلب (ب)", short_fr:"Demande (B)",
+    short_en:"Part B", short_es:"Parte B", short_ar:"الجزء ب", short_fr:"Partie B",
     fields:[
       {id:"basis_race",en:"1. Basis for claim — Race",es:"1. Motivo — Raza",ar:"١. أساس الطلب — العرق",fr:"1. Motif — Race",type:"yesno"},
       {id:"basis_religion",en:"1. Basis for claim — Religion",es:"1. Motivo — Religión",ar:"١. الأساس — الدين",fr:"1. Motif — Religion",type:"yesno"},
@@ -269,7 +269,7 @@ const SECTIONS: Section[] = [
     ]},
   { id:"c",
     en:"Part C — Additional Information About Your Application", es:"Parte C — Información Adicional Sobre Su Solicitud", ar:"الجزء ج — معلومات إضافية عن طلبك", fr:"Partie C — Informations Supplémentaires Sur Votre Demande",
-    short_en:"Additional (C)", short_es:"Adicional (C)", short_ar:"إضافي (ج)", short_fr:"Supplémentaire (C)",
+    short_en:"Part C", short_es:"Parte C", short_ar:"الجزء ج", short_fr:"Partie C",
     fields:[
       {id:"prior_asylum",en:"1. Have you, your spouse, your child(ren), your parents or your siblings ever applied to the U.S. Government for refugee status, asylum, or withholding of removal?",es:"1. ¿Ha solicitado usted, su cónyuge, hijos, padres o hermanos al Gobierno de EE.UU. el estatus de refugiado, asilo o suspensión de deportación?",ar:"١. هل تقدمت أنت أو زوجك/زوجتك أو أطفالك أو والداك أو أشقاؤك بطلب للحكومة الأمريكية للحصول على وضع لاجئ أو لجوء أو تعليق الترحيل؟",fr:"1. Vous, votre conjoint·e, vos enfants, parents ou frères/sœurs avez-vous jamais demandé au gouvernement américain le statut de réfugié, l'asile ou la suspension d'expulsion?",type:"yesno"},
       {id:"prior_asylum_detail",en:"1. If Yes — explain the decision and what happened to any status received. Indicate whether you were included in a parent or spouse's application. If denied by an immigration judge or the Board of Immigration Appeals, describe any change(s) in conditions in your country or your own personal circumstances since the date of the denial:",es:"1. Si Sí — explique la decisión y qué pasó con el estatus recibido. Indique si fue incluido en la solicitud de un padre o cónyuge. Si fue negado por un juez de inmigración o la Junta de Apelaciones, describa cambios en las condiciones de su país o sus circunstancias personales desde la denegación:",ar:"١. إن نعم — اشرح القرار وما حدث لأي وضع قانوني مُنح. أشر إن كنت مشمولاً في طلب والد أو زوج. إن رُفض الطلب، صف أي تغييرات في ظروف بلدك أو ظروفك الشخصية:",fr:"1. Si Oui — expliquez la décision et ce qui est arrivé au statut reçu. Indiquez si vous étiez inclus dans la demande d'un parent ou conjoint. Si refusé, décrivez tout changement de conditions:",type:"textarea",tall:true},
@@ -422,7 +422,7 @@ function ReviewScreen({formData,answeredIn,lang,onBack}:{
 }) {
   const [enVals, setEnVals] = useState<Record<string,string>>({});
   const [busy, setBusy] = useState(true);
-  const [dlBusy, setDlBusy] = useState<"en"|"nat"|null>(null);
+  
 
   useEffect(() => {
     const run = async () => {
@@ -446,25 +446,32 @@ function ReviewScreen({formData,answeredIn,lang,onBack}:{
   const lc = lang.code as "en"|"es"|"ar"|"fr";
   const dir = lang.rtl ? "rtl" : "ltr";
 
-  const download = async (english: boolean) => {
-    setDlBusy(english?"en":"nat");
-    try {
-      const payload: Record<string,string> = {};
-      SECTIONS.forEach(sec => sec.fields.forEach(f => {
-        const v = english ? (enVals[f.id]||formData[f.id]) : formData[f.id];
-        if (v) payload[f.id] = v;
-      }));
-      const r = await fetch("/api/generate-pdf",{
-        method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)
+  const download = (english: boolean) => {
+    const lc = lang.code as "en"|"es"|"ar"|"fr";
+    const lines: string[] = [
+      english ? "I-589 — English Version (for submission)" : `I-589 — ${lang.label} Version (for family review)`,
+      "DRAFT — Not an official USCIS document",
+      "",
+    ];
+    SECTIONS.forEach(sec => {
+      const filled = sec.fields.filter(f => formData[f.id]);
+      if (!filled.length) return;
+      lines.push("=".repeat(60));
+      lines.push(english ? sec.en : (sec[lc] || sec.en));
+      lines.push("=".repeat(60));
+      filled.forEach(f => {
+        const label = english ? f.en : (f[lc] || f.en);
+        const value = english ? (enVals[f.id] || formData[f.id]) : formData[f.id];
+        lines.push(`${label}:`);
+        lines.push(`  ${value}`);
+        lines.push("");
       });
-      if (!r.ok) throw new Error();
-      const blob = await r.blob();
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = english ? "i589-english-draft.pdf" : `i589-${lang.code}-family.pdf`;
-      a.click();
-    } catch { alert("PDF generation failed. Please try again."); }
-    finally { setDlBusy(null); }
+    });
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = english ? "i589-english.txt" : `i589-${lang.code}.txt`;
+    a.click();
   };
 
   return (
@@ -513,11 +520,11 @@ function ReviewScreen({formData,answeredIn,lang,onBack}:{
         );
       })}
       <div style={{position:"sticky", bottom:0, background:C.white, borderTop:`2px solid ${C.border}`, padding:"16px 0", display:"flex", gap:12, flexWrap:"wrap" as const}}>
-        <button onClick={()=>download(false)} disabled={!!dlBusy} style={{flex:1, minWidth:200, padding:"13px", borderRadius:8, background:dlBusy?C.gray:C.teal, color:dlBusy?C.mid:C.white, border:"none", cursor:dlBusy?"default":"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
-          {dlBusy==="nat" ? UI.gen_pdf[lang.code] : UI.dl_nat[lang.code]}
+        <button onClick={()=>download(false)} style={{flex:1, minWidth:200, padding:"13px", borderRadius:8, background:C.teal, color:C.white, border:"none", cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
+          {UI.dl_nat[lang.code]}
         </button>
-        <button onClick={()=>download(true)} disabled={!!dlBusy} style={{flex:1, minWidth:200, padding:"13px", borderRadius:8, background:dlBusy?C.gray:C.white, color:dlBusy?C.mid:C.teal, border:`2px solid ${dlBusy?C.border:C.teal}`, cursor:dlBusy?"default":"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
-          {dlBusy==="en" ? UI.gen_pdf[lang.code] : UI.dl_en[lang.code]}
+        <button onClick={()=>download(true)} style={{flex:1, minWidth:200, padding:"13px", borderRadius:8, background:C.white, color:C.teal, border:`2px solid ${C.teal}`, cursor:"pointer", fontFamily:"inherit", fontSize:14, fontWeight:700}}>
+          {UI.dl_en[lang.code]}
         </button>
       </div>
     </div>
