@@ -50,7 +50,7 @@ const COURT: string[][] = [["Never been in proceedings","Nunca en procedimientos
 function childFields(n: number): Field[] {
   const p = `c${n}_`;
   const N = String(n);
-  const li = ["en","es","ar","fr"].indexOf;
+
   return [
     {id:`${p}a_num`,       en:`Child ${N} — 1. A-Number (if any)`,                              es:`Hijo/a ${N} — 1. Número A`,                    ar:`الطفل ${N} — ١. رقم A`,                  fr:`Enfant ${N} — 1. Numéro A`,                        type:"text"},
     {id:`${p}passport`,    en:`Child ${N} — 2. Passport/ID Card Number (if any)`,               es:`Hijo/a ${N} — 2. Número de pasaporte/ID`,       ar:`الطفل ${N} — ٢. رقم جواز السفر`,        fr:`Enfant ${N} — 2. Numéro de passeport/ID`,          type:"text"},
@@ -290,22 +290,6 @@ const SECTIONS: Section[] = [
 // ─── Translation ───────────────────────────────────────────────────────────
 const cache: Record<string,string> = {};
 
-async function googleTranslate(text: string, targetLang: string): Promise<string> {
-  if (!text?.trim() || targetLang==="en") return text;
-  const k = `${targetLang}::${text}`;
-  if (cache[k]) return cache[k];
-  const key = import.meta.env.VITE_GOOGLE_TRANSLATE_API_KEY;
-  if (!key) return text;
-  try {
-    const r = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${key}`,{
-      method:"POST", headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({q:text, source:"en", target:targetLang, format:"text"})
-    });
-    const d = await r.json();
-    const result = d?.data?.translations?.[0]?.translatedText ?? text;
-    cache[k] = result; return result;
-  } catch { return text; }
-}
 
 async function toEnglish(text: string, srcLang: string): Promise<string> {
   if (!text?.trim() || srcLang==="en") return text;
